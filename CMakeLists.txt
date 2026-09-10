@@ -47,6 +47,16 @@ target_link_libraries(smart_home_configuration
         Threads::Threads
 )
 
+# DatabaseSettings 从部署环境读取数据库连接参数，不保存数据库密码到配置文件。
+add_library(smart_home_database_settings
+    src/DatabaseSettings.cc
+)
+
+target_include_directories(smart_home_database_settings
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 # ThreadPool 管理 Reactor 业务分发路径使用的工作线程，且无需网络依赖即可独立测试。
 add_library(smart_home_thread_pool
     src/ThreadPool.cc
@@ -224,6 +234,7 @@ add_executable(SmartHomeServer
 target_link_libraries(SmartHomeServer
     PRIVATE
         smart_home_configuration
+        smart_home_database_settings
         smart_home_logger
         smart_home_thread_pool
         smart_home_reactor
@@ -247,6 +258,17 @@ target_link_libraries(configuration_test
 )
 
 add_test(NAME configuration_test COMMAND configuration_test)
+
+add_executable(database_settings_test
+    test/DatabaseSettingsTest.cc
+)
+
+target_link_libraries(database_settings_test
+    PRIVATE
+        smart_home_database_settings
+)
+
+add_test(NAME database_settings_test COMMAND database_settings_test)
 
 add_executable(thread_pool_test
     test/ThreadPoolTest.cc

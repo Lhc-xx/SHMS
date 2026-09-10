@@ -49,6 +49,22 @@ sudo apt-get install -y g++ cmake make liblog4cpp5-dev default-libmysqlclient-de
 
 `CMakeLists.txt` 会检查 `log4cpp/Category.hh`、`liblog4cpp` 和 MySQL 客户端库。如果依赖缺失，配置阶段会直接失败，避免服务端误用未配置的第三方依赖。
 
+## 数据库连接配置
+
+用户注册/登录业务通过部署环境启用，连接参数使用以下环境变量读取：
+
+```bash
+export SHMS_DB_HOST=127.0.0.1
+export SHMS_DB_PORT=3306
+export SHMS_DB_USER=shms
+read -r -s -p "数据库密码: " SHMS_DB_PASSWORD
+echo
+export SHMS_DB_PASSWORD
+export SHMS_DB_NAME=smart_home_monitor
+```
+
+其中 `SHMS_DB_PORT` 可以省略，默认使用 `3306`。数据库环境变量不完整或端口非法时服务会拒绝启动；未设置任何 `SHMS_DB_*` 变量时，服务仍可启动并验证心跳，但用户注册/登录消息会按协议错误关闭。数据库密码只存在于进程环境和内存中，不会写入配置文件、错误信息或日志。
+
 ## 构建与测试
 
 在项目根目录执行：
@@ -62,6 +78,7 @@ ctest --test-dir build --output-on-failure
 预期测试包括：
 
 - `configuration_test`
+- `database_settings_test`
 - `my_logger_test`
 - `thread_pool_test`
 - `reactor_test`
@@ -96,7 +113,7 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主程序已通过 `ProtocolTcpServer` 接入协议会话，协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理，用户注册/登录服务层、用户协议处理器和摄像头列表缓存服务已经完成；具体 TCP 会话接入数据库业务、数据库连接配置以及视频和录像业务将在后续模块接入。
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主程序已通过 `ProtocolTcpServer` 接入协议会话，协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理；配置数据库环境变量后，用户注册/登录消息会接入 MySQL DAO 和 `UserService`。摄像头协议以及视频和录像业务将在后续模块接入。
 
 数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。`database_test` 不需要真实数据库连接，会验证用户和摄像头 DAO 的输入校验；`user_service_test` 使用内存存储验证注册、登录、重复用户、错误密码和 MD5-crypt 兼容哈希。初始化用户和摄像头表可执行：
 
@@ -104,7 +121,7 @@ TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主�
 mysql -u <db_user> -p smart_home_monitor < database/schema.sql
 ```
 
-生产服务仍需由部署层创建 DAO、连接 MySQL 后注入业务服务；用户登录成功后调用 `CameraService::load()` 加载设备列表。
+生产服务启动时会根据数据库环境变量创建 DAO、连接 MySQL，并幂等初始化 `t_user` 表；摄像头表仍可通过 `database/schema.sql` 初始化。用户登录成功后调用 `CameraService::load()` 加载设备列表的协议接入将在后续模块完成。
 
 用户协议消息类型为 `1001/1002`（注册请求/响应）和 `1003/1004`（登录请求/响应）。注册/登录请求体依次为 `username_length(uint32)`、`username`、`password_length(uint32)`、`password`；响应体依次为 `code(uint32)`、`user_id(uint64)`、`message_length(uint32)`、`message`，整数均为网络字节序。协议处理器返回业务失败响应，不会把密码写入日志。
 
