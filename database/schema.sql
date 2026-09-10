@@ -1,5 +1,5 @@
--- SmartHomeMonitoringSystem user schema from the database design document.
--- Execute after creating the smart_home_monitor database.
+-- SmartHomeMonitoringSystem 数据库设计文档中的用户表结构。
+-- 创建 smart_home_monitor 数据库后执行本脚本。
 CREATE TABLE IF NOT EXISTS t_user (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL,

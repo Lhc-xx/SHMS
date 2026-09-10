@@ -52,7 +52,7 @@ bool bindParameters(MYSQL_STMT* statement,
     return mysql_stmt_bind_param(statement, binds->data()) == 0;
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -315,4 +315,4 @@ void MySqlClient::clearError() {
     lastError_.clear();
 }
 
-}  // namespace shms
+}  // shms 命名空间

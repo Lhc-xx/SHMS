@@ -10,7 +10,7 @@
 
 namespace {
 
-// Translate the project-level enum to the corresponding log4cpp priority.
+// 将项目级日志枚举转换为对应的 log4cpp 优先级。
 log4cpp::Priority::Value toLog4cppPriority(shms::MyLogger::Level level) {
     switch (level) {
         case shms::MyLogger::Level::Debug:
@@ -25,7 +25,7 @@ log4cpp::Priority::Value toLog4cppPriority(shms::MyLogger::Level level) {
     return log4cpp::Priority::INFO;
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -35,8 +35,8 @@ struct MyLogger::Impl {
           minimumLevel(Level::Info),
           initialized(false) {}
 
-    // Category is owned by log4cpp's hierarchy. The pointer is non-owning;
-    // the appender attached to it is owned by the Category.
+    // Category 由 log4cpp 层级结构负责拥有。此处指针不拥有对象；附加到
+    // Category 的输出器由 Category 负责管理。
     log4cpp::Category* category;
     Level minimumLevel;
     bool initialized;
@@ -62,8 +62,8 @@ bool MyLogger::initialize(const std::string& logFile, Level minimumLevel) {
         return false;
     }
 
-    // Remove an old appender before installing the new one. This avoids
-    // duplicate records when initialize() is called more than once.
+    // 安装新输出器前先移除旧输出器，避免多次调用 initialize() 时产生重复
+    // 日志记录。
     if (impl_->category != nullptr) {
         impl_->category->removeAllAppenders();
         impl_->category = nullptr;
@@ -73,25 +73,23 @@ bool MyLogger::initialize(const std::string& logFile, Level minimumLevel) {
 
     log4cpp::Category* category = nullptr;
     try {
-        // Use a dedicated category with additivity disabled so messages are
-        // written only to the configured server file, not to an inherited
-        // root appender such as stdout.
+        // 使用关闭继承的专用 Category，使消息只写入配置的服务端日志文件，
+        // 不写入 stdout 等继承自根 Category 的输出器。
         category = &log4cpp::Category::getInstance(
             "SmartHomeMonitoringSystem");
         category->removeAllAppenders();
         category->setAdditivity(false);
         category->setPriority(toLog4cppPriority(minimumLevel));
 
-        // The layout contains timestamp, priority, category, and message;
-        // %l adds milliseconds for diagnosing concurrent server events.
+        // 日志布局包含时间戳、优先级、Category 和消息；%l 添加毫秒信息，
+        // 便于诊断并发服务端事件。
         std::unique_ptr<log4cpp::PatternLayout> layout(
             new log4cpp::PatternLayout());
         layout->setConversionPattern(
             "%d{%Y-%m-%d %H:%M:%S,%l} [%p] [%c] %m%n");
 
-        // FileAppender opens in append mode so restarting the service keeps
-        // the existing audit trail. addAppender(pointer) transfers ownership
-        // to the Category after the layout is attached.
+        // FileAppender 以追加模式打开文件，服务重启后仍能保留已有审计记录。
+        // 设置布局后，addAppender(pointer) 会将输出器所有权转移给 Category。
         std::unique_ptr<log4cpp::FileAppender> appender(
             new log4cpp::FileAppender(
                 "SmartHomeMonitoringSystemFileAppender", logFile, true));
@@ -105,8 +103,8 @@ bool MyLogger::initialize(const std::string& logFile, Level minimumLevel) {
         lastError_.clear();
         return true;
     } catch (const std::exception& exception) {
-        // A failed open or invalid layout must not leave a half-configured
-        // logger attached to the global Category hierarchy.
+        // 打开文件失败或布局无效时，不能让半配置状态的日志对象残留在全局
+        // Category 层级中。
         if (category != nullptr) {
             category->removeAllAppenders();
         }
@@ -121,8 +119,8 @@ bool MyLogger::initialize(const std::string& logFile, Level minimumLevel) {
 
 void MyLogger::shutdown() {
     std::lock_guard<std::mutex> lock(mutex_);
-    // Category::removeAllAppenders() closes and detaches the FileAppender;
-    // subsequent writes will fail fast until initialize() is called again.
+    // Category::removeAllAppenders() 会关闭并分离 FileAppender；在再次调用
+    // initialize() 前，后续写入会快速失败。
     if (impl_->category != nullptr) {
         impl_->category->removeAllAppenders();
     }
@@ -142,14 +140,14 @@ bool MyLogger::write(Level level, const std::string& message) {
         lastError_ = "logger is not initialized";
         return false;
     }
-    // Treat filtered messages as a successful no-op. Callers do not need to
-    // branch around debug logging when production runs at INFO level.
+    // 将被过滤的消息视为成功的空操作。生产环境使用 INFO 级别时，调用方
+    // 无需为 DEBUG 日志额外编写分支。
     if (static_cast<int>(level) < static_cast<int>(impl_->minimumLevel)) {
         return true;
     }
 
-    // Use the std::string overload so user-provided '%' characters are logged
-    // as data rather than interpreted as printf format directives.
+    // 使用 std::string 重载，使用户提供的 '%' 字符按普通数据记录，而不会
+    // 被解释为 printf 格式指令。
     impl_->category->log(toLog4cppPriority(level), message);
     return true;
 }
@@ -172,7 +170,7 @@ bool MyLogger::error(const std::string& message) {
 
 bool MyLogger::recordUserRegistration(const std::string& username,
                                       bool succeeded) {
-    // Record the outcome but never accept a password argument.
+    // 记录操作结果，但绝不接收密码参数。
     return write(
         succeeded ? Level::Info : Level::Warn,
         std::string("user registration ") + (succeeded ? "succeeded" :
@@ -200,8 +198,8 @@ std::string MyLogger::lastError() const {
 }
 
 std::string MyLogger::sanitize(const std::string& value) {
-    // Keep one business operation on one physical log line. This also avoids
-    // allowing a user-controlled newline to forge a second log record.
+    // 让一次业务操作对应一条物理日志行，同时避免用户控制的换行符伪造
+    // 第二条日志记录。
     std::string result = value;
     for (std::string::iterator it = result.begin(); it != result.end(); ++it) {
         if (*it == '\r' || *it == '\n') {
@@ -211,4 +209,4 @@ std::string MyLogger::sanitize(const std::string& value) {
     return result;
 }
 
-}  // namespace shms
+}  // shms 命名空间

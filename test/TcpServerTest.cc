@@ -35,7 +35,7 @@ bool waitFor(const std::function<bool()>& predicate) {
 }
 #endif
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
 #if !defined(__linux__)

@@ -10,7 +10,7 @@
 
 namespace {
 
-// Remove whitespace around a token while keeping whitespace inside it intact.
+// 删除令牌两侧的空白，同时保留令牌内部的空白。
 std::string trim(const std::string& value) {
     std::string::size_type begin = 0;
     while (begin < value.size() &&
@@ -27,8 +27,7 @@ std::string trim(const std::string& value) {
     return value.substr(begin, end - begin);
 }
 
-// Parse a decimal unsigned value without accepting signs, trailing text, or
-// values outside the requested range.
+// 解析十进制无符号数，不接受符号、尾随文本或超出指定范围的值。
 bool parseUnsigned(const std::string& text,
                    unsigned long long maxValue,
                    unsigned long long* result) {
@@ -50,8 +49,8 @@ bool parseUnsigned(const std::string& text,
     return true;
 }
 
-// Add a line number to parser errors so a bad server.conf can be fixed from
-// the startup message without guessing which entry failed.
+// 为解析错误添加行号，使错误的 server.conf 可以根据启动消息直接修复，
+// 无需猜测是哪一项配置失败。
 bool setError(std::string* error,
               std::size_t lineNumber,
               const std::string& message) {
@@ -61,7 +60,7 @@ bool setError(std::string* error,
     return false;
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -74,15 +73,14 @@ Configuration::Values::Values()
 Configuration::Configuration() {}
 
 Configuration& Configuration::instance() {
-    // Function-local static initialization is the Meyers singleton pattern
-    // and is synchronized by the C++11 runtime.
+    // 函数内静态变量初始化采用 Meyers 单例模式，并由 C++11 运行时同步。
     static Configuration configuration;
     return configuration;
 }
 
 bool Configuration::load(const std::string& path) {
-    // Open before taking the mutex. Parsing does not touch shared state and
-    // therefore does not block readers during disk I/O.
+    // 在获取互斥锁之前打开文件。解析过程不访问共享状态，因此磁盘 I/O 不会
+    // 阻塞读取配置的线程。
     std::ifstream input(path.c_str());
     if (!input.is_open()) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -90,8 +88,8 @@ bool Configuration::load(const std::string& path) {
         return false;
     }
 
-    // Parse into a temporary candidate. This gives load() a strong exception-
-    // and validation-failure guarantee: values_ changes only on success.
+    // 解析到临时配置对象中。这样可以保证 load() 在异常或校验失败时保持
+    // 强保证：values_ 只有在成功后才会改变。
     Values candidate;
     bool hasIp = false;
     bool hasPort = false;
@@ -106,8 +104,8 @@ bool Configuration::load(const std::string& path) {
     while (std::getline(input, line)) {
         ++lineNumber;
 
-        // The configuration format uses '#' for both full-line and inline
-        // comments, as shown in conf/server.conf.
+        // 配置格式使用 '#' 表示整行注释和行内注释，具体格式见
+        // conf/server.conf。
         const std::string::size_type comment = line.find('#');
         if (comment != std::string::npos) {
             line.erase(comment);
@@ -117,8 +115,8 @@ bool Configuration::load(const std::string& path) {
             continue;
         }
 
-        // A configuration entry is intentionally strict: exactly one key and
-        // one value prevents typos from silently changing server behavior.
+        // 配置项格式有意保持严格：恰好一个键和一个值，避免拼写错误静默地
+        // 改变服务端行为。
         std::istringstream stream(line);
         std::string key;
         std::string value;
@@ -129,8 +127,7 @@ bool Configuration::load(const std::string& path) {
             break;
         }
 
-        // Keep the accepted keys explicit. Unknown keys and duplicate keys are
-        // rejected instead of being silently ignored.
+        // 明确列出可接受的键。未知键和重复键会被拒绝，不会被静默忽略。
         if (key == "ip") {
             if (hasIp) {
                 setError(&error, lineNumber, "duplicate key: ip");
@@ -219,8 +216,8 @@ bool Configuration::load(const std::string& path) {
         }
     }
 
-    // Check required fields after parsing so a syntactically valid but
-    // incomplete file cannot start the server with zero-valued settings.
+    // 解析后检查必需字段，避免语法有效但内容不完整的配置文件以零值设置
+    // 启动服务端。
     if (error.empty() && !hasIp) {
         error = "missing required key: ip";
     } else if (error.empty() && !hasPort) {
@@ -235,8 +232,7 @@ bool Configuration::load(const std::string& path) {
         error = "missing required key: log_file";
     }
 
-    // Commit the complete candidate atomically from the point of view of
-    // readers. On failure only lastError_ changes.
+    // 从读取方视角原子提交完整的临时配置。失败时只有 lastError_ 会改变。
     std::lock_guard<std::mutex> lock(mutex_);
     if (!error.empty()) {
         lastError_ = error;
@@ -289,4 +285,4 @@ std::string Configuration::lastError() const {
     return lastError_;
 }
 
-}  // namespace shms
+}  // shms 命名空间

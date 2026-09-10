@@ -6,11 +6,10 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# The server uses std::mutex and log4cpp's thread-safe Category implementation.
+# 服务端使用 std::mutex 和 log4cpp 提供的线程安全 Category 实现。
 find_package(Threads REQUIRED)
 
-# Production builds must link the requested log4cpp dependency instead of
-# silently falling back to an alternative logger.
+# 生产构建必须链接指定的 log4cpp 依赖，不能静默退回其他日志库。
 find_path(LOG4CPP_INCLUDE_DIR NAMES log4cpp/Category.hh)
 find_library(LOG4CPP_LIBRARY NAMES log4cpp)
 if(NOT LOG4CPP_INCLUDE_DIR OR NOT LOG4CPP_LIBRARY)
@@ -18,9 +17,8 @@ if(NOT LOG4CPP_INCLUDE_DIR OR NOT LOG4CPP_LIBRARY)
         "log4cpp is required. Install it with: sudo apt-get install liblog4cpp5-dev")
 endif()
 
-# UserDao uses the prepared-statement API from the MySQL-compatible client
-# library. Keep this dependency explicit so cloud builds fail with a useful
-# installation hint instead of silently using unsafe SQL concatenation.
+# UserDao 使用兼容 MySQL 的客户端库提供的预处理语句 API。
+# 显式保留该依赖，使云服务器构建缺少安装包时能给出明确提示，避免静默使用不安全的 SQL 拼接。
 find_path(MYSQL_INCLUDE_DIR NAMES mysql/mysql.h mysql.h)
 find_library(MYSQL_LIBRARY NAMES mysqlclient mariadb)
 if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
@@ -34,8 +32,7 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Configuration parsing is kept as a small reusable library for the server and
-# its unit test.
+# 配置解析被拆分为可复用的小型库，供服务端和单元测试共同使用。
 add_library(smart_home_configuration
     src/Configuration.cc
 )
@@ -50,8 +47,7 @@ target_link_libraries(smart_home_configuration
         Threads::Threads
 )
 
-# ThreadPool owns the worker threads used by the future Reactor business
-# dispatch path and is independently testable without network dependencies.
+# ThreadPool 管理 Reactor 业务分发路径使用的工作线程，且无需网络依赖即可独立测试。
 add_library(smart_home_thread_pool
     src/ThreadPool.cc
 )
@@ -66,8 +62,7 @@ target_link_libraries(smart_home_thread_pool
         Threads::Threads
 )
 
-# Reactor owns the Linux epoll/eventfd event loop. It has no third-party
-# dependency, so TCP and protocol modules can build on top of this target.
+# Reactor 管理 Linux epoll/eventfd 事件循环，不依赖第三方库，TCP 和协议模块可在其上构建。
 add_library(smart_home_reactor
     src/Reactor.cc
 )
@@ -82,8 +77,7 @@ target_link_libraries(smart_home_reactor
         Threads::Threads
 )
 
-# TCP communication owns the listening socket and accepted connections while
-# Reactor remains responsible for readiness notification and dispatch.
+# TCP 通信模块管理监听套接字和已接收连接，Reactor 负责就绪通知与事件分发。
 add_library(smart_home_tcp
     src/TcpConnection.cc
     src/TcpServer.cc
@@ -100,8 +94,7 @@ target_link_libraries(smart_home_tcp
         Threads::Threads
 )
 
-# Protocol parses the Type/Length/Value stream and dispatches decoded messages
-# without coupling the transport layer to login or camera business logic.
+# Protocol 解析 Type/Length/Value 数据流并分发解码后的消息，不与登录或摄像头业务逻辑耦合。
 add_library(smart_home_protocol
     src/Protocol.cc
     src/MessageDispatcher.cc
@@ -117,8 +110,7 @@ target_link_libraries(smart_home_protocol
         Threads::Threads
 )
 
-# Database contains the MySQL RAII client and the first t_user DAO. Password
-# hashing and user-session business rules remain in the service layer.
+# Database 包含 MySQL RAII 客户端和首个 t_user DAO；密码哈希及用户会话规则仍由服务层负责。
 add_library(smart_home_database
     src/MySqlClient.cc
     src/UserDao.cc
@@ -136,7 +128,7 @@ target_link_libraries(smart_home_database
         Threads::Threads
 )
 
-# MyLogger contains the only direct dependency on log4cpp.
+# MyLogger 是唯一直接依赖 log4cpp 的模块。
 add_library(smart_home_logger
     src/MyLogger.cc
 )
@@ -153,8 +145,7 @@ target_link_libraries(smart_home_logger
         Threads::Threads
 )
 
-# The bootstrap executable currently validates startup configuration and
-# initializes logging; later server modules will be linked here.
+# 启动程序负责校验启动配置并初始化日志，后续服务模块将在此处继续链接。
 add_executable(SmartHomeServer
     src/main.cc
 )
@@ -171,8 +162,7 @@ target_link_libraries(SmartHomeServer
 
 enable_testing()
 
-# Unit tests are intentionally dependency-light except for the logger test,
-# which exercises the same log4cpp library used by the production executable.
+# 单元测试尽量减少依赖；日志测试例外，它会验证生产程序使用的同一套 log4cpp 库。
 add_executable(configuration_test
     test/ConfigurationTest.cc
 )

@@ -74,4 +74,4 @@ void MessageDispatcher::clearError() {
     lastError_.clear();
 }
 
-}  // namespace shms
+}  // shms 命名空间

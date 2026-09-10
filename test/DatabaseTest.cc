@@ -14,12 +14,11 @@ void expect(bool condition, const char* message) {
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
-    // The unit test does not require deployment credentials or a running
-    // database. It verifies validation and deterministic disconnected errors;
-    // the cloud integration command in README covers a real MySQL instance.
+    // 单元测试不要求部署凭据或正在运行的数据库。它验证参数校验和可确定的
+    // 断开连接错误；README 中的云服务器集成测试命令用于验证真实 MySQL 实例。
     shms::MySqlClient client;
     expect(!client.connected(), "start disconnected");
 

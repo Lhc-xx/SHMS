@@ -34,7 +34,7 @@ bool makeNonBlocking(int fd) {
 }
 #endif
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -88,8 +88,8 @@ bool TcpConnection::handleEvents(std::uint32_t events) {
         return false;
     }
 
-    // Read first so data already queued in the kernel is delivered before a
-    // peer half-close is handled. Any terminal error still closes the socket.
+    // 先执行读取，使内核中已经排队的数据在处理对端半关闭之前交付。
+    // 任何终止性错误仍会关闭套接字。
     if ((events & EPOLLIN) != 0 && !readAvailable()) {
         return false;
     }
@@ -294,4 +294,4 @@ void TcpConnection::clearError() {
     lastError_.clear();
 }
 
-}  // namespace shms
+}  // shms 命名空间

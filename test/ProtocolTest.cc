@@ -15,7 +15,7 @@ void expect(bool condition, const char* message) {
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
     std::string firstFrame;

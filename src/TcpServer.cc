@@ -35,7 +35,7 @@ bool makeNonBlocking(int fd) {
 }
 #endif
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -259,8 +259,8 @@ bool TcpServer::acceptConnections() {
             continue;
         }
         if (!registerConnection(client)) {
-            // registerConnection transfers ownership to TcpConnection before
-            // it can fail; its destructor closes the client descriptor.
+            // registerConnection 会在可能失败前将所有权转移给 TcpConnection；
+            // 发生失败时由其析构函数关闭客户端描述符。
             continue;
         }
     }
@@ -414,4 +414,4 @@ void TcpServer::clearError() {
     lastError_.clear();
 }
 
-}  // namespace shms
+}  // shms 命名空间

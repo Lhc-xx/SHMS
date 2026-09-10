@@ -12,8 +12,8 @@
 
 namespace shms {
 
-// Routes decoded protocol messages to business-layer handlers. It does not
-// parse or own TCP connections, keeping transport and business concerns apart.
+// 将解码后的协议消息路由到业务层处理器。此类不负责解析，也不拥有 TCP
+// 连接，从而保持传输层与业务层职责分离。
 class MessageDispatcher {
 public:
     using Handler = std::function<void(const ProtocolMessage&)>;
@@ -22,13 +22,12 @@ public:
     MessageDispatcher(const MessageDispatcher&) = delete;
     MessageDispatcher& operator=(const MessageDispatcher&) = delete;
 
-    // Register exactly one handler per message type. A duplicate registration
-    // is rejected so a later module cannot silently replace business logic.
+    // 为每种消息类型注册唯一处理器。重复注册会被拒绝，避免后续模块静默
+    // 替换已有业务逻辑。
     bool registerHandler(std::uint32_t type, Handler handler);
     bool unregisterHandler(std::uint32_t type);
 
-    // Dispatch one decoded message. Unknown types are reported to the caller
-    // so protocol errors are not silently discarded.
+    // 分发一条已解码消息。未知类型会报告给调用方，避免协议错误被静默丢弃。
     bool dispatch(const ProtocolMessage& message);
 
     std::size_t handlerCount() const;
@@ -44,6 +43,6 @@ private:
     std::string lastError_;
 };
 
-}  // namespace shms
+}  // shms 命名空间
 
-#endif  // SMART_HOME_MESSAGE_DISPATCHER_HPP
+#endif  // SMART_HOME_MESSAGE_DISPATCHER_HPP 头文件保护宏

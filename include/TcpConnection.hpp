@@ -10,8 +10,8 @@
 
 namespace shms {
 
-// Owns one accepted TCP socket. The socket is configured as non-blocking and
-// is closed exactly once by close() or the destructor.
+// 拥有一个已接收的 TCP 套接字。套接字配置为非阻塞模式，并且只会由
+// close() 或析构函数关闭一次。
 class TcpConnection {
 public:
     using DataHandler =
@@ -24,16 +24,16 @@ public:
 
     ~TcpConnection();
 
-    // Queue bytes for transmission. The Reactor callback should include
-    // EPOLLOUT while hasPendingWrite() is true so the queue can drain.
+    // 将待发送字节加入队列。当 hasPendingWrite() 为 true 时，Reactor
+    // 回调应包含 EPOLLOUT，以便逐步发送队列内容。
     bool send(const std::string& data);
 
-    // Consume one Reactor event mask. Read and write callbacks are invoked on
-    // the Reactor thread; callback exceptions close only this connection.
+    // 处理一次 Reactor 事件掩码。读写回调都在 Reactor 线程中调用；回调
+    // 抛出的异常只会关闭当前连接。
     bool handleEvents(std::uint32_t events);
 
-    // Close the socket and notify the close handler once. The connection does
-    // not close any other descriptor or remove itself from the Reactor.
+    // 关闭套接字并通知一次关闭处理器。连接不会关闭其他描述符，也不会将
+    // 自身从 Reactor 中移除。
     void close();
 
     int fd() const;
@@ -67,6 +67,6 @@ private:
     std::string lastError_;
 };
 
-}  // namespace shms
+}  // shms 命名空间
 
-#endif  // SMART_HOME_TCP_CONNECTION_HPP
+#endif  // SMART_HOME_TCP_CONNECTION_HPP 头文件保护宏

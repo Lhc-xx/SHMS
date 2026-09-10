@@ -11,8 +11,8 @@
 
 namespace shms {
 
-// A bounded worker pool for server-side business tasks. The queue limit is
-// deliberately configurable so task_num from server.conf controls memory use.
+// 面向服务端业务任务的有界工作线程池。队列上限可配置，因此 server.conf
+// 中的 task_num 可以控制内存使用量。
 class ThreadPool {
 public:
     using Task = std::function<void()>;
@@ -23,15 +23,15 @@ public:
 
     ~ThreadPool();
 
-    // Start all workers. Starting an already running pool is idempotent.
+    // 启动所有工作线程。重复启动已运行的线程池不会产生额外影响。
     bool start();
 
-    // Stop accepting tasks, finish tasks already queued, and join workers.
-    // Calling stop more than once is safe.
+    // 停止接收任务，完成已经排队的任务并等待工作线程退出。重复调用
+    // stop 是安全的。
     void stop();
 
-    // Submit a task. A full queue applies back-pressure until space is
-    // available or stop() is called. Returns false when submission is closed.
+    // 提交任务。队列满时会施加反压，直到有空位或调用 stop()；停止接收
+    // 任务后返回 false。
     bool submit(Task task);
 
     std::size_t threadCount() const;
@@ -52,6 +52,6 @@ private:
     bool running_;
 };
 
-}  // namespace shms
+}  // shms 命名空间
 
-#endif  // SMART_HOME_THREAD_POOL_HPP
+#endif  // SMART_HOME_THREAD_POOL_HPP 头文件保护宏

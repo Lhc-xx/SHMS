@@ -18,7 +18,7 @@ void expect(bool condition, const char* message) {
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
     shms::ThreadPool pool(3, 32);
@@ -43,7 +43,7 @@ int main() {
         }), "submit task while pool is running");
     }
 
-    // One task intentionally throws, so 59 successful tasks are expected.
+    // 有一个任务会故意抛出异常，因此预期有 59 个任务成功完成。
     std::unique_lock<std::mutex> lock(mutex);
     expect(completed.wait_for(lock, std::chrono::seconds(5), [&executed]() {
                return executed.load() == taskCount - 1;

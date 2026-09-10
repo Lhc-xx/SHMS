@@ -26,7 +26,7 @@ void writeUint32(std::uint32_t value, char* data) {
     data[3] = static_cast<char>(value & 0xff);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -161,4 +161,4 @@ bool ProtocolParser::fail(const std::string& message) {
     return false;
 }
 
-}  // namespace shms
+}  // shms 命名空间

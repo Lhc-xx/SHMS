@@ -15,9 +15,8 @@
 
 namespace shms {
 
-// Non-blocking IPv4 listener that adapts accepted connections to Reactor.
-// Protocol parsing is deliberately outside this class and belongs to the
-// following TLV/protocol layer.
+// 将已接收连接接入 Reactor 的非阻塞 IPv4 监听器。
+// 协议解析有意放在此类之外，由后续 TLV/协议层负责。
 class TcpServer {
 public:
     using ConnectionHandler = std::function<void(TcpConnection&)>;
@@ -33,12 +32,12 @@ public:
 
     ~TcpServer();
 
-    // Bind and listen. Port zero is accepted for tests and is replaced by the
-    // kernel-assigned port() after start succeeds.
+    // 执行绑定和监听。测试可以传入端口 0，启动成功后会由内核分配端口，
+    // 并通过 port() 返回。
     bool start();
 
-    // Stop accepting new clients, close active connections, and unregister
-    // every descriptor from the Reactor. Client descriptors are owned here.
+    // 停止接收新客户端，关闭活动连接，并从 Reactor 中注销所有描述符。
+    // 客户端描述符由此类负责拥有。
     void stop();
 
     bool running() const;
@@ -78,6 +77,6 @@ private:
     std::string lastError_;
 };
 
-}  // namespace shms
+}  // shms 命名空间
 
-#endif  // SMART_HOME_TCP_SERVER_HPP
+#endif  // SMART_HOME_TCP_SERVER_HPP 头文件保护宏

@@ -35,7 +35,7 @@ bool parseId(const std::string& text, std::uint64_t* value) {
     return true;
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -128,4 +128,4 @@ void UserDao::clearError() {
     lastError_.clear();
 }
 
-}  // namespace shms
+}  // shms 命名空间

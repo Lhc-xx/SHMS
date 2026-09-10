@@ -22,15 +22,15 @@ void writeFile(const std::string& path, const std::string& content) {
     expect(output.good(), "write temporary configuration file");
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
-    // The function-local static must always return the same object.
+    // 函数内静态变量必须始终返回同一个对象。
     shms::Configuration& configuration = shms::Configuration::instance();
 
     expect(&configuration == &shms::Configuration::instance(),
            "Configuration is a singleton");
-    // Verify the documented server.conf format and all six required values.
+    // 验证文档规定的 server.conf 格式和全部六个必需值。
     expect(configuration.load("../conf/server.conf"),
            "load the project configuration");
     expect(configuration.loaded(), "configuration reports loaded state");
@@ -41,11 +41,11 @@ int main() {
     expect(configuration.videoPath() == "./data/", "read video_path");
     expect(configuration.logFile() == "./log/server.log", "read log_file");
 
-    // Inline comments and maximum valid port values are accepted.
+    // 应接受行内注释和允许范围内的最大端口值。
     const std::string validPath = "configuration_test_valid.conf";
     writeFile(validPath,
-              "# comments and blank lines are allowed\n"
-              "ip 10.0.0.8 # inline comment\n"
+              "# 允许注释和空行\n"
+              "ip 10.0.0.8 # 行内注释\n"
               "port 65535\n"
               "thread_num 2\n"
               "task_num 10\n"
@@ -56,7 +56,7 @@ int main() {
     expect(configuration.port() == 65535, "read maximum valid port");
     std::remove(validPath.c_str());
 
-    // A failed reload must not replace the last valid in-memory configuration.
+    // 重新加载失败时不能替换内存中最后一份有效配置。
     const std::string invalidPath = "configuration_test_invalid.conf";
     writeFile(invalidPath,
               "ip 10.0.0.8\n"

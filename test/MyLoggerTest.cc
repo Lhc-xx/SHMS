@@ -25,11 +25,10 @@ std::string readFile(const std::string& path) {
                        std::istreambuf_iterator<char>());
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
-    // The test writes beside the test executable and removes its own artifact
-    // so the source tree is not polluted by runtime logs.
+    // 测试在可执行文件旁写入日志，并删除自己生成的文件，避免污染源码目录。
     const std::string path = "my_logger_test.log";
     std::remove(path.c_str());
 
@@ -40,7 +39,7 @@ int main() {
     expect(!logger.info("message before initialization"),
            "reject writes before initialization");
 
-    // DEBUG is selected so every supported level can be verified.
+    // 选择 DEBUG 级别，以便验证所有受支持的日志级别。
     expect(logger.initialize(path, shms::MyLogger::Level::Debug),
            "initialize log4cpp file appender");
     expect(logger.initialized(), "logger reports initialized state");
@@ -54,8 +53,7 @@ int main() {
     expect(logger.recordCameraView("alice", "camera-001"),
            "record camera view");
 
-    // Multiple worker threads model the server's future task pool and verify
-    // that each operation remains a complete log record.
+    // 多个工作线程模拟服务端工作线程池，并验证每次操作都保持为完整的日志记录。
     std::vector<std::thread> workers;
     for (int worker = 0; worker < 4; ++worker) {
         workers.push_back(std::thread([&logger, worker]() {

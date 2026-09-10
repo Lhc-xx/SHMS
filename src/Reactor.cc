@@ -22,7 +22,7 @@ std::string systemError(const char* operation, int errorNumber) {
 }
 #endif
 
-}  // namespace
+}  // 匿名命名空间
 
 namespace shms {
 
@@ -33,8 +33,8 @@ Reactor::Reactor()
       stopRequested_(false) {}
 
 Reactor::~Reactor() {
-    // The owner should call shutdown after run() returns. stop() is still
-    // issued here so a blocked loop can observe the destruction request.
+    // 所有者应在 run() 返回后调用 shutdown()。这里仍会调用 stop()，使
+    // 阻塞中的事件循环能够感知销毁请求。
     stop();
     shutdown();
 }
@@ -83,9 +83,9 @@ bool Reactor::initialize() {
 void Reactor::shutdown() {
     stop();
 
-    // Closing descriptors while another thread is inside epoll_wait would
-    // race with the kernel call. The public lifecycle requires run() to have
-    // returned before shutdown(); retain the descriptors if that is violated.
+    // 当另一个线程正在 epoll_wait 中时关闭描述符会与内核调用产生竞争。
+    // 公共生命周期要求先让 run() 返回再调用 shutdown()；若违反该要求，
+    // 此处保留描述符以避免竞争。
     if (running()) {
         setError("cannot shut down a running Reactor");
         return;
@@ -352,8 +352,8 @@ void Reactor::wake() {
 
     const std::uint64_t signal = 1;
     const ssize_t result = write(wakeFd, &signal, sizeof(signal));
-    // eventfd is level-triggered and one pending value is enough to wake the
-    // loop. EAGAIN only means another stop request already signaled it.
+    // eventfd 使用水平触发，一个待处理值就足以唤醒事件循环。EAGAIN 只
+    // 表示已经有另一次 stop 请求发出了唤醒信号。
     if (result < 0 && errno != EAGAIN) {
         setError(systemError("eventfd wake failed", errno));
     }
@@ -378,4 +378,4 @@ void Reactor::drainWake() {
 #endif
 }
 
-}  // namespace shms
+}  // shms 命名空间

@@ -10,9 +10,8 @@ ThreadPool::ThreadPool(std::size_t threadCount, std::size_t maxQueueSize)
       running_(false) {}
 
 ThreadPool::~ThreadPool() {
-    // The owner must not outlive worker threads. stop() drains queued work and
-    // joins every worker before the task queue and synchronization objects go
-    // out of scope.
+    // 所有者不能早于工作线程销毁。stop() 会清空排队任务并等待所有工作
+    // 线程退出，然后任务队列和同步对象才会离开作用域。
     stop();
 }
 
@@ -32,8 +31,8 @@ bool ThreadPool::start() {
             workers_.push_back(std::thread(&ThreadPool::workerLoop, this));
         }
     } catch (const std::exception&) {
-        // If a thread cannot be created, wake any workers that did start and
-        // return the pool to a clean stopped state before reporting failure.
+        // 如果工作线程创建失败，先唤醒已经启动的线程，并在报告错误前将
+        // 线程池恢复到干净的停止状态。
         running_ = false;
         notEmpty_.notify_all();
         notFull_.notify_all();
@@ -56,8 +55,8 @@ void ThreadPool::stop() {
         if (!running_ && workers_.empty()) {
             return;
         }
-        // Workers continue until the queue is empty, then observe running_ ==
-        // false and exit. This provides graceful draining of accepted tasks.
+        // 工作线程会持续运行直到队列清空，然后发现 running_ == false 并
+        // 退出，从而优雅地处理已经接收的任务。
         running_ = false;
     }
 
@@ -116,8 +115,8 @@ void ThreadPool::workerLoop() {
                 return !running_ || !tasks_.empty();
             });
 
-            // Drain accepted tasks during shutdown. Exit only after stop() has
-            // closed submissions and no queued task remains.
+            // 关闭期间处理已经接收的任务。只有 stop() 关闭任务提交且队列
+            // 中不再有任务后才退出。
             if (!running_ && tasks_.empty()) {
                 return;
             }
@@ -127,17 +126,16 @@ void ThreadPool::workerLoop() {
             notFull_.notify_one();
         }
 
-        // A bad business task must not terminate its worker or prevent other
-        // client requests from being processed.
+        // 有问题的业务任务不能终止工作线程，也不能阻止其他客户端请求处理。
         try {
             task();
         } catch (const std::exception&) {
-            // The future logging/dispatcher layer will record task failures;
-            // the pool's responsibility is to keep the worker alive.
+            // 后续日志/分发层将记录任务失败；线程池的职责是保证工作线程
+            // 继续存活。
         } catch (...) {
-            // Also isolate non-standard exceptions from the worker loop.
+            // 同时隔离非标准异常，避免其逸出工作线程循环。
         }
     }
 }
 
-}  // namespace shms
+}  // shms 命名空间

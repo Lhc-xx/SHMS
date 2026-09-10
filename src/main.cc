@@ -9,9 +9,8 @@
 #include <string>
 
 int main(int argc, char* argv[]) {
-    // The first argument is optional so the documented default
-    // ./conf/server.conf works when the server is launched from the project
-    // root.
+    // 第一个参数是可选的，因此从项目根目录启动服务端时可以直接使用文档
+    // 中的默认路径 ./conf/server.conf。
     const std::string path = argc > 1 ? argv[1] : "./conf/server.conf";
     shms::Configuration& configuration = shms::Configuration::instance();
 
@@ -21,8 +20,8 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Initialize logging immediately after configuration. Any later server
-    // module can now record operations through the same singleton instance.
+    // 在加载配置后立即初始化日志。后续服务端模块都可以通过同一个单例
+    // 记录操作。
     shms::MyLogger& logger = shms::MyLogger::instance();
     if (!logger.initialize(configuration.logFile())) {
         std::cerr << "Failed to initialize logger: " << logger.lastError()
@@ -30,9 +29,8 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Build the worker pool from the server configuration. The current
-    // bootstrap exits after proving startup/cleanup; Reactor will submit real
-    // client tasks here in the next framework increment.
+    // 根据服务端配置创建工作线程池。线程池负责执行网络事件之外的业务任务，
+    // 并在服务退出时完成已接收任务的收尾。
     shms::ThreadPool threadPool(configuration.threadNum(),
                                 configuration.taskNum());
     if (!threadPool.start()) {
@@ -42,9 +40,8 @@ int main(int argc, char* argv[]) {
     }
     logger.info("thread pool started");
 
-    // Initialize the network event loop during bootstrap. TcpServer will
-    // register the listening socket in the next increment before run() owns
-    // the server thread for its full lifetime.
+    // 在启动阶段初始化网络事件循环，并由 TcpServer 注册监听套接字；随后
+    // run() 将在服务生命周期内持续处理网络事件。
     shms::Reactor reactor;
     if (!reactor.initialize()) {
         logger.error("reactor initialization failed: " + reactor.lastError());
@@ -56,8 +53,8 @@ int main(int argc, char* argv[]) {
     }
     logger.info("reactor initialized");
 
-    // TcpServer owns the listener and accepted sockets, while all readiness
-    // notifications continue to run on the single Reactor thread.
+    // TcpServer 负责监听套接字和已接收连接的所有权，所有就绪通知仍由单个
+    // Reactor 线程处理。
     shms::TcpServer tcpServer(reactor,
                               configuration.ip(),
                               configuration.port());
@@ -67,8 +64,8 @@ int main(int argc, char* argv[]) {
     });
     tcpServer.setMessageHandler([&logger](shms::TcpConnection& connection,
                                           const std::string& data) {
-        // Do not log client payloads; the protocol layer will interpret them
-        // later. Logging the byte count is sufficient for transport tracing.
+        // 不记录客户端消息体，后续由协议层负责解释。记录字节数已经足够
+        // 用于传输层跟踪。
         logger.debug("tcp data received: fd=" +
                      std::to_string(connection.fd()) +
                      ", bytes=" + std::to_string(data.size()));
@@ -98,9 +95,8 @@ int main(int argc, char* argv[]) {
               << "video_path=" << configuration.videoPath() << std::endl
               << "log_file=" << configuration.logFile() << std::endl;
     logger.info("server bootstrap completed");
-    // The TCP module is now the long-running service boundary. The next
-    // protocol increment will route messages from this callback to business
-    // handlers instead of only tracing transport activity.
+    // TCP 模块是当前长期运行的服务边界。后续协议模块将把此回调收到的消息
+    // 路由到业务处理器，而不仅仅是跟踪传输活动。
     if (!reactor.run()) {
         logger.error("reactor stopped with error: " + reactor.lastError());
     }

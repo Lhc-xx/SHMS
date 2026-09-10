@@ -25,12 +25,12 @@ void expect(bool condition, const char* message) {
 }
 #endif
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
 #if !defined(__linux__)
-    // The production server target is Ubuntu 22.04; keep non-Linux builds
-    // informative rather than pretending that epoll is available there.
+    // 生产服务端目标平台是 Ubuntu 22.04；非 Linux 构建应给出提示，不要
+    // 假装这些平台提供 epoll。
     std::cout << "Reactor tests skipped: Linux epoll is required" << std::endl;
     return EXIT_SUCCESS;
 #else
@@ -89,8 +89,8 @@ int main() {
     reactor.shutdown();
     expect(!reactor.initialized(), "report shutdown state");
 
-    // Verify that stop() wakes a thread blocked in epoll_wait instead of
-    // requiring a client event or a polling timeout to end the service.
+    // 验证 stop() 可以唤醒阻塞在 epoll_wait 中的线程，而不需要客户端事件
+    // 或轮询超时来结束服务。
     shms::Reactor runningReactor;
     expect(runningReactor.initialize(), "initialize Reactor for run test");
     std::atomic<bool> runFinished(false);
