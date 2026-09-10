@@ -71,6 +71,18 @@ int main() {
                responses[0].body.empty(),
            "decode the heartbeat response");
 
+    expect(!session.authenticated(), "start without an authenticated user");
+    expect(session.setAuthenticatedUser("alice"),
+           "bind the authenticated user to the session");
+    expect(session.authenticated() && session.authenticatedUser() == "alice",
+           "read the authenticated user");
+    expect(!session.setAuthenticatedUser("invalid user"),
+           "reject an invalid authenticated user");
+    expect(session.authenticatedUser() == "alice",
+           "keep the previous authenticated user after failure");
+    session.clearAuthenticatedUser();
+    expect(!session.authenticated(), "clear the authenticated user");
+
     std::string unknownFrame;
     expect(shms::ProtocolCodec::encode(9999, "unknown", &unknownFrame),
            "encode an unknown request");

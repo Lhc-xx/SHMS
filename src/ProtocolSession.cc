@@ -3,6 +3,25 @@
 #include <stdexcept>
 #include <utility>
 
+namespace {
+
+bool validAuthenticatedUser(const std::string& username) {
+    if (username.empty() || username.size() > 20U ||
+        username.find('\0') != std::string::npos) {
+        return false;
+    }
+    for (std::string::const_iterator it = username.begin();
+         it != username.end();
+         ++it) {
+        if (*it == '\r' || *it == '\n' || *it == '\t' || *it == ' ') {
+            return false;
+        }
+    }
+    return true;
+}
+
+}  // 匿名命名空间
+
 namespace shms {
 
 ProtocolSession::ProtocolSession(SendHandler sender, std::size_t maxBodySize)
@@ -80,6 +99,41 @@ bool ProtocolSession::sendMessage(std::uint32_t type,
     }
     clearError();
     return true;
+}
+
+bool ProtocolSession::setAuthenticatedUser(const std::string& username,
+                                            std::string* error) {
+    if (!validAuthenticatedUser(username)) {
+        const std::string message = "authenticated username is invalid";
+        if (error != nullptr) {
+            *error = message;
+        }
+        return setError(message);
+    }
+    {
+        std::lock_guard<std::mutex> lock(contextMutex_);
+        authenticatedUser_ = username;
+    }
+    if (error != nullptr) {
+        error->clear();
+    }
+    clearError();
+    return true;
+}
+
+void ProtocolSession::clearAuthenticatedUser() {
+    std::lock_guard<std::mutex> lock(contextMutex_);
+    authenticatedUser_.clear();
+}
+
+bool ProtocolSession::authenticated() const {
+    std::lock_guard<std::mutex> lock(contextMutex_);
+    return !authenticatedUser_.empty();
+}
+
+std::string ProtocolSession::authenticatedUser() const {
+    std::lock_guard<std::mutex> lock(contextMutex_);
+    return authenticatedUser_;
 }
 
 bool ProtocolSession::failed() const {

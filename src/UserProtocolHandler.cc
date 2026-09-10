@@ -33,8 +33,17 @@ UserProtocolHandler::UserProtocolHandler(UserService& service)
 
 bool UserProtocolHandler::handle(const ProtocolMessage& request,
                                  ProtocolMessage* response) {
+    return handle(request, response, nullptr);
+}
+
+bool UserProtocolHandler::handle(const ProtocolMessage& request,
+                                 ProtocolMessage* response,
+                                 std::string* authenticatedUsername) {
     if (response == nullptr) {
         return setError("response output cannot be null");
+    }
+    if (authenticatedUsername != nullptr) {
+        authenticatedUsername->clear();
     }
     response->type = 0;
     response->body.clear();
@@ -76,6 +85,10 @@ bool UserProtocolHandler::handle(const ProtocolMessage& request,
         return setError(encodeError);
     }
     response->type = responseType;
+    if (authenticatedUsername != nullptr &&
+        request.type == loginRequest && result.succeeded()) {
+        *authenticatedUsername = credentials.username;
+    }
     clearError();
     return true;
 }

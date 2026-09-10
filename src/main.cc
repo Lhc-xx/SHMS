@@ -1,3 +1,6 @@
+#include "CameraDao.hpp"
+#include "CameraProtocolHandler.hpp"
+#include "CameraService.hpp"
 #include "Configuration.hpp"
 #include "DatabaseSettings.hpp"
 #include "MySqlClient.hpp"
@@ -24,7 +27,33 @@ void handleUserMessage(shms::ProtocolSession& session,
                        shms::UserProtocolHandler& handler,
                        const shms::ProtocolMessage& request) {
     shms::ProtocolMessage response;
-    if (!handler.handle(request, &response)) {
+    std::string authenticatedUsername;
+    if (!handler.handle(request, &response, &authenticatedUsername)) {
+        throw std::runtime_error(handler.lastError());
+    }
+    if (!authenticatedUsername.empty()) {
+        std::string authenticationError;
+        if (!session.setAuthenticatedUser(authenticatedUsername,
+                                          &authenticationError)) {
+            throw std::runtime_error(authenticationError);
+        }
+    }
+    if (!session.sendMessage(response.type, response.body)) {
+        throw std::runtime_error(session.lastError());
+    }
+}
+
+// 摄像头请求必须使用当前连接已经绑定的登录用户名，防止未登录连接直接
+// 读取设备信息或绕过查看操作日志。
+void handleCameraMessage(shms::ProtocolSession& session,
+                         shms::CameraProtocolHandler& handler,
+                         const shms::ProtocolMessage& request) {
+    if (!session.authenticated()) {
+        throw std::runtime_error("authentication required");
+    }
+    const std::string username = session.authenticatedUser();
+    shms::ProtocolMessage response;
+    if (!handler.handle(request, username, &response)) {
         throw std::runtime_error(handler.lastError());
     }
     if (!session.sendMessage(response.type, response.body)) {
@@ -35,22 +64,41 @@ void handleUserMessage(shms::ProtocolSession& session,
 // 为新连接注册用户注册和登录消息处理器。每条连接都有独立的解析器，
 // 业务处理器则复用同一个已连接的存储服务。
 bool configureUserSession(shms::ProtocolSession& session,
-                          shms::UserProtocolHandler& handler) {
+                          shms::UserProtocolHandler& userHandler,
+                          shms::CameraProtocolHandler& cameraHandler) {
     const std::uint32_t registerRequest = static_cast<std::uint32_t>(
         shms::UserMessageType::RegisterRequest);
     const std::uint32_t loginRequest = static_cast<std::uint32_t>(
         shms::UserMessageType::LoginRequest);
     if (!session.registerHandler(
             registerRequest,
-            [&session, &handler](const shms::ProtocolMessage& request) {
-                handleUserMessage(session, handler, request);
+            [&session, &userHandler](const shms::ProtocolMessage& request) {
+                handleUserMessage(session, userHandler, request);
             })) {
         return false;
     }
+    if (!session.registerHandler(
+            loginRequest,
+            [&session, &userHandler](const shms::ProtocolMessage& request) {
+                handleUserMessage(session, userHandler, request);
+            })) {
+        return false;
+    }
+    const std::uint32_t listRequest = static_cast<std::uint32_t>(
+        shms::CameraMessageType::ListRequest);
+    if (!session.registerHandler(
+            listRequest,
+            [&session, &cameraHandler](const shms::ProtocolMessage& request) {
+                handleCameraMessage(session, cameraHandler, request);
+            })) {
+        return false;
+    }
+    const std::uint32_t viewRequest = static_cast<std::uint32_t>(
+        shms::CameraMessageType::ViewRequest);
     return session.registerHandler(
-        loginRequest,
-        [&session, &handler](const shms::ProtocolMessage& request) {
-            handleUserMessage(session, handler, request);
+        viewRequest,
+        [&session, &cameraHandler](const shms::ProtocolMessage& request) {
+            handleCameraMessage(session, cameraHandler, request);
         });
 }
 
@@ -95,6 +143,9 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<shms::UserDao> userDao;
     std::unique_ptr<shms::UserService> userService;
     std::unique_ptr<shms::UserProtocolHandler> userProtocolHandler;
+    std::unique_ptr<shms::CameraDao> cameraDao;
+    std::unique_ptr<shms::CameraService> cameraService;
+    std::unique_ptr<shms::CameraProtocolHandler> cameraProtocolHandler;
     if (databaseSettings.enabled()) {
         mysqlClient.reset(new shms::MySqlClient());
         if (!mysqlClient->connect(databaseSettings.host(),
@@ -122,7 +173,28 @@ int main(int argc, char* argv[]) {
         userService.reset(new shms::UserService(*userDao, &logger));
         userProtocolHandler.reset(
             new shms::UserProtocolHandler(*userService));
-        logger.info("database user service enabled");
+
+        cameraDao.reset(new shms::CameraDao(*mysqlClient));
+        if (!cameraDao->initializeSchema()) {
+            logger.error("camera schema initialization failed: " +
+                         cameraDao->lastError());
+            std::cerr << "Failed to initialize camera schema: "
+                      << cameraDao->lastError() << std::endl;
+            logger.shutdown();
+            return EXIT_FAILURE;
+        }
+        cameraService.reset(new shms::CameraService(*cameraDao, &logger));
+        if (!cameraService->load()) {
+            logger.error("camera cache initialization failed: " +
+                         cameraService->lastError());
+            std::cerr << "Failed to initialize camera cache: "
+                      << cameraService->lastError() << std::endl;
+            logger.shutdown();
+            return EXIT_FAILURE;
+        }
+        cameraProtocolHandler.reset(
+            new shms::CameraProtocolHandler(*cameraService));
+        logger.info("database user and camera services enabled");
     } else {
         // 未配置数据库时仍允许验证心跳和传输层；用户业务消息会按协议错误关闭。
         logger.warn("database user service disabled: configure SHMS_DB_* environment variables");
@@ -157,11 +229,13 @@ int main(int argc, char* argv[]) {
     shms::ProtocolTcpServer protocolServer(reactor,
                                            configuration.ip(),
                                            configuration.port());
-    if (userProtocolHandler) {
-        shms::UserProtocolHandler* handler = userProtocolHandler.get();
+    if (userProtocolHandler && cameraProtocolHandler) {
+        shms::UserProtocolHandler* userHandler = userProtocolHandler.get();
+        shms::CameraProtocolHandler* cameraHandler =
+            cameraProtocolHandler.get();
         protocolServer.setSessionConfigurer(
-            [handler](shms::ProtocolSession& session) {
-                return configureUserSession(session, *handler);
+            [userHandler, cameraHandler](shms::ProtocolSession& session) {
+                return configureUserSession(session, *userHandler, *cameraHandler);
             });
     }
     protocolServer.setConnectionHandler(

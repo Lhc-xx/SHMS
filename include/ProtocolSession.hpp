@@ -42,6 +42,13 @@ public:
                      const std::string& body,
                      std::string* error = nullptr);
 
+    // 保存当前连接登录成功后的用户名，供后续业务消息进行权限校验和操作日志记录。
+    bool setAuthenticatedUser(const std::string& username,
+                              std::string* error = nullptr);
+    void clearAuthenticatedUser();
+    bool authenticated() const;
+    std::string authenticatedUser() const;
+
     bool failed() const;
     std::size_t bufferedBytes() const;
     std::string lastError() const;
@@ -54,6 +61,8 @@ private:
     SendHandler sender_;
     ProtocolParser parser_;
     MessageDispatcher dispatcher_;
+    mutable std::mutex contextMutex_;
+    std::string authenticatedUser_;
     mutable std::mutex errorMutex_;
     std::string lastError_;
 };

@@ -110,6 +110,7 @@ add_library(smart_home_protocol
     src/MessageDispatcher.cc
     src/UserProtocol.cc
     src/ProtocolSession.cc
+    src/CameraProtocol.cc
 )
 
 target_include_directories(smart_home_protocol
@@ -212,6 +213,7 @@ target_link_libraries(smart_home_user
 # CameraService 在登录成功后加载摄像头列表，并通过内存索引提供快速查询。
 add_library(smart_home_camera
     src/CameraService.cc
+    src/CameraProtocolHandler.cc
 )
 
 target_include_directories(smart_home_camera
@@ -223,6 +225,7 @@ target_link_libraries(smart_home_camera
     PUBLIC
         smart_home_database
         smart_home_logger
+        smart_home_protocol
         Threads::Threads
 )
 
@@ -347,6 +350,17 @@ target_link_libraries(camera_service_test
 
 add_test(NAME camera_service_test COMMAND camera_service_test)
 
+add_executable(camera_protocol_handler_test
+    test/CameraProtocolHandlerTest.cc
+)
+
+target_link_libraries(camera_protocol_handler_test
+    PRIVATE
+        smart_home_camera
+)
+
+add_test(NAME camera_protocol_handler_test COMMAND camera_protocol_handler_test)
+
 add_executable(user_protocol_test
     test/UserProtocolTest.cc
 )
@@ -368,6 +382,17 @@ target_link_libraries(protocol_session_test
 )
 
 add_test(NAME protocol_session_test COMMAND protocol_session_test)
+
+add_executable(camera_protocol_test
+    test/CameraProtocolTest.cc
+)
+
+target_link_libraries(camera_protocol_test
+    PRIVATE
+        smart_home_protocol
+)
+
+add_test(NAME camera_protocol_test COMMAND camera_protocol_test)
 
 add_executable(protocol_tcp_server_test
     test/ProtocolTcpServerTest.cc

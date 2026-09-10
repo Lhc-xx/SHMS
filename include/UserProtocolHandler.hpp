@@ -17,8 +17,12 @@ public:
     UserProtocolHandler(const UserProtocolHandler&) = delete;
     UserProtocolHandler& operator=(const UserProtocolHandler&) = delete;
 
-    // 处理一条用户模块消息，response 输出完整的消息类型和消息体。
+    // 处理一条用户模块消息，response 输出完整的消息类型和消息体；
+    // 登录成功时通过 authenticatedUsername 返回已校验的用户名。
     bool handle(const ProtocolMessage& request, ProtocolMessage* response);
+    bool handle(const ProtocolMessage& request,
+                ProtocolMessage* response,
+                std::string* authenticatedUsername);
 
     std::string lastError() const;
 

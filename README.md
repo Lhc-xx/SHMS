@@ -19,7 +19,9 @@
 - `MySqlClient`：MySQL C API RAII 封装，所有带用户输入的 SQL 使用预处理参数绑定。
 - `UserDao`：实现 `t_user` 建表、用户创建和按用户名查询。
 - `CameraDao`：实现 `t_camera` 建表、摄像头创建、单个查询和列表查询。
-- `CameraService`：在用户登录后加载摄像头列表到内存，提供按 ID 查询和查看日志。
+- `CameraService`：启动时加载摄像头列表到内存，提供按 ID 查询和查看日志。
+- `CameraProtocol`：定义摄像头列表、查看请求及摄像头记录响应编码。
+- `CameraProtocolHandler`：校验登录身份后接入 `CameraService`，返回列表或查看结果。
 - `PasswordHasher`：实现与 `$1$` MD5-crypt 兼容的加盐密码生成和校验。
 - `UserService`：实现用户注册、用户登录、重复用户/错误密码处理，并通过依赖抽象隔离 DAO。
 - `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和协议 TCP 服务，并进入 Reactor 事件循环。
@@ -87,8 +89,10 @@ ctest --test-dir build --output-on-failure
 - `database_test`
 - `user_service_test`
 - `camera_service_test`
+- `camera_protocol_handler_test`
 - `user_protocol_test`
 - `protocol_session_test`
+- `camera_protocol_test`
 - `protocol_tcp_server_test`
 
 所有测试都通过后，再进行服务启动验证。
@@ -121,9 +125,11 @@ TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主�
 mysql -u <db_user> -p smart_home_monitor < database/schema.sql
 ```
 
-生产服务启动时会根据数据库环境变量创建 DAO、连接 MySQL，并幂等初始化 `t_user` 表；摄像头表仍可通过 `database/schema.sql` 初始化。用户登录成功后调用 `CameraService::load()` 加载设备列表的协议接入将在后续模块完成。
+生产服务启动时会根据数据库环境变量创建 DAO、连接 MySQL，并幂等初始化 `t_user` 和 `t_camera` 表；摄像头缓存会在启动时加载，登录成功后可以通过摄像头协议读取列表。摄像头流转发和录像业务将在后续模块接入。
 
 用户协议消息类型为 `1001/1002`（注册请求/响应）和 `1003/1004`（登录请求/响应）。注册/登录请求体依次为 `username_length(uint32)`、`username`、`password_length(uint32)`、`password`；响应体依次为 `code(uint32)`、`user_id(uint64)`、`message_length(uint32)`、`message`，整数均为网络字节序。协议处理器返回业务失败响应，不会把密码写入日志。
+
+摄像头协议消息类型为 `2001/2002`（列表请求/响应）和 `2003/2004`（查看请求/响应）。列表请求体为空，查看请求体为 `camera_id(uint64)`；响应体依次为 `code(uint32)`、`message_length(uint32)`、`message`、`camera_count(uint32)` 和摄像头记录数组。每条记录依次包含 `id(uint64)`、`type(uint32)`、`channels(uint32)` 以及 `serial_no`、`ip`、`rtsp`、`rtmp` 四个长度前缀字符串，整数均采用网络字节序。摄像头请求必须先在同一 TCP 连接上登录。
 
 系统心跳消息类型为 `9001/9002`（`HEARTBEAT_REQ/HEARTBEAT_RESP`），心跳请求体为空，服务端收到后返回空响应体。
 
