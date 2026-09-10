@@ -110,7 +110,7 @@ target_link_libraries(smart_home_protocol
         Threads::Threads
 )
 
-# Database 包含 MySQL RAII 客户端、用户 DAO 和摄像头 DAO；密码哈希及用户业务规则由服务层负责。
+# Database 包含 MySQL RAII 客户端、用户 DAO 和摄像头 DAO；密码哈希及业务规则由服务层负责。
 add_library(smart_home_database
     src/MySqlClient.cc
     src/UserDao.cc
@@ -178,6 +178,23 @@ target_link_libraries(smart_home_user
         Threads::Threads
 )
 
+# CameraService 在登录成功后加载摄像头列表，并通过内存索引提供快速查询。
+add_library(smart_home_camera
+    src/CameraService.cc
+)
+
+target_include_directories(smart_home_camera
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_camera
+    PUBLIC
+        smart_home_database
+        smart_home_logger
+        Threads::Threads
+)
+
 # 启动程序负责校验启动配置并初始化日志，后续服务模块将在此处继续链接。
 add_executable(SmartHomeServer
     src/main.cc
@@ -192,6 +209,7 @@ target_link_libraries(SmartHomeServer
         smart_home_tcp
         smart_home_protocol
         smart_home_user
+        smart_home_camera
 )
 
 enable_testing()
@@ -273,6 +291,17 @@ target_link_libraries(user_service_test
 )
 
 add_test(NAME user_service_test COMMAND user_service_test)
+
+add_executable(camera_service_test
+    test/CameraServiceTest.cc
+)
+
+target_link_libraries(camera_service_test
+    PRIVATE
+        smart_home_camera
+)
+
+add_test(NAME camera_service_test COMMAND camera_service_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc

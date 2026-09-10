@@ -2,6 +2,7 @@
 #define SMART_HOME_CAMERA_DAO_HPP
 
 #include "MySqlClient.hpp"
+#include "CameraStore.hpp"
 
 #include <cstdint>
 #include <string>
@@ -9,21 +10,9 @@
 
 namespace shms {
 
-struct CameraRecord {
-    std::uint64_t id;
-    std::uint32_t type;
-    std::string serialNo;
-    std::uint32_t channels;
-    std::string ip;
-    std::string rtsp;
-    std::string rtmp;
-
-    CameraRecord() : id(0), type(0), channels(0) {}
-};
-
 // 摄像头信息 DAO，对应需求文档中的 t_camera 表。
 // 所有写入和查询都通过 MySqlClient 的预处理语句执行。
-class CameraDao {
+class CameraDao : public CameraStore {
 public:
     explicit CameraDao(MySqlClient& client);
     CameraDao(const CameraDao&) = delete;
@@ -44,12 +33,12 @@ public:
     // 根据摄像头编号查询信息，查询不到时 found 为 false，而不是数据库错误。
     bool findById(std::uint64_t cameraId,
                   CameraRecord* record,
-                  bool* found);
+                  bool* found) override;
 
     // 按编号升序读取全部摄像头，供用户登录后加载设备列表。
-    bool listCameras(std::vector<CameraRecord>* cameras);
+    bool listCameras(std::vector<CameraRecord>* cameras) override;
 
-    std::string lastError() const;
+    std::string lastError() const override;
 
 private:
     bool validateCamera(std::uint32_t type,

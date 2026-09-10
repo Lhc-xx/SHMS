@@ -15,6 +15,7 @@
 - `MySqlClient`：MySQL C API RAII 封装，所有带用户输入的 SQL 使用预处理参数绑定。
 - `UserDao`：实现 `t_user` 建表、用户创建和按用户名查询。
 - `CameraDao`：实现 `t_camera` 建表、摄像头创建、单个查询和列表查询。
+- `CameraService`：在用户登录后加载摄像头列表到内存，提供按 ID 查询和查看日志。
 - `PasswordHasher`：实现与 `$1$` MD5-crypt 兼容的加盐密码生成和校验。
 - `UserService`：实现用户注册、用户登录、重复用户/错误密码处理，并通过依赖抽象隔离 DAO。
 - `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和 TCP 监听，并进入 Reactor 事件循环。
@@ -64,6 +65,7 @@ ctest --test-dir build --output-on-failure
 - `protocol_test`
 - `database_test`
 - `user_service_test`
+- `camera_service_test`
 
 所有测试都通过后，再进行服务启动验证。
 
@@ -87,7 +89,7 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析和消息分发，用户注册/登录服务层已经完成；登录报文处理器、数据库连接配置以及视频和录像业务将在后续模块接入。
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析和消息分发，用户注册/登录服务层和摄像头列表缓存服务已经完成；登录报文处理器、数据库连接配置以及视频和录像业务将在后续模块接入。
 
 数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。`database_test` 不需要真实数据库连接，会验证用户和摄像头 DAO 的输入校验；`user_service_test` 使用内存存储验证注册、登录、重复用户、错误密码和 MD5-crypt 兼容哈希。初始化用户和摄像头表可执行：
 
@@ -95,7 +97,7 @@ TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已�
 mysql -u <db_user> -p smart_home_monitor < database/schema.sql
 ```
 
-生产服务仍需由部署层创建 DAO、连接 MySQL 后注入业务服务。
+生产服务仍需由部署层创建 DAO、连接 MySQL 后注入业务服务；用户登录成功后调用 `CameraService::load()` 加载设备列表。
 
 业务模块完成用户注册、用户登录或查看摄像头后，应调用以下接口记录操作：
 
