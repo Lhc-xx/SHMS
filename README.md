@@ -1,6 +1,6 @@
 # Smart Home Monitoring System
 
-智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool 和 Reactor 基础模块，为后续 TCP、协议和业务模块提供启动基础。
+智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool、Reactor 和 TCP 通信基础模块，为后续协议和业务模块提供启动基础。
 
 ## 当前实现
 
@@ -8,8 +8,10 @@
 - `MyLogger`：单例日志对象，使用 `log4cpp` 写入服务端日志文件。
 - `ThreadPool`：有界任务队列和可优雅停止的 C++11 工作线程池。
 - `Reactor`：基于 Linux `epoll + eventfd` 的单线程事件循环，支持文件描述符注册、修改、移除和跨线程唤醒停止。
-- `SmartHomeServer`：启动时读取配置、初始化日志并启动工作线程池。
-- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发和优雅停止。
+- `TcpConnection`：非阻塞 TCP 连接、收包回调、发送队列和 4 MB 待发送数据上限。
+- `TcpServer`：IPv4 监听、接受连接、连接生命周期管理和 Reactor 事件注册。
+- `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和 TCP 监听，并进入 Reactor 事件循环。
+- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发和优雅停止。
 
 ## 目录结构
 
@@ -50,6 +52,7 @@ ctest --test-dir build --output-on-failure
 - `my_logger_test`
 - `thread_pool_test`
 - `reactor_test`
+- `tcp_server_test`
 
 所有测试都通过后，再进行服务启动验证。
 
@@ -61,9 +64,9 @@ mkdir -p data log
 grep -E "server configuration loaded|server bootstrap completed" log/server.log
 ```
 
-成功时，终端会打印配置内容，`log/server.log` 会追加包含时间、级别、类别和消息的日志记录，并包含 `reactor initialized` 启动记录。
+成功时，终端会打印配置内容，`log/server.log` 会追加包含时间、级别、类别和消息的日志记录，并包含 `reactor initialized`、`TCP server listening` 启动记录。服务会持续运行，使用 `Ctrl+C` 停止。
 
-Reactor 当前只负责事件循环基础设施，尚未监听 TCP 端口；TCP Server 模块完成后再让 `SmartHomeServer` 进入长期运行状态。
+TCP 层当前只负责可靠的非阻塞连接收发和生命周期管理，收到的数据暂不解析业务含义；TLV 协议模块完成后再接入登录、视频和录像消息。
 
 业务模块完成用户注册、用户登录或查看摄像头后，应调用以下接口记录操作：
 

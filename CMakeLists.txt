@@ -72,6 +72,24 @@ target_link_libraries(smart_home_reactor
         Threads::Threads
 )
 
+# TCP communication owns the listening socket and accepted connections while
+# Reactor remains responsible for readiness notification and dispatch.
+add_library(smart_home_tcp
+    src/TcpConnection.cc
+    src/TcpServer.cc
+)
+
+target_include_directories(smart_home_tcp
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_tcp
+    PUBLIC
+        smart_home_reactor
+        Threads::Threads
+)
+
 # MyLogger contains the only direct dependency on log4cpp.
 add_library(smart_home_logger
     src/MyLogger.cc
@@ -101,6 +119,7 @@ target_link_libraries(SmartHomeServer
         smart_home_logger
         smart_home_thread_pool
         smart_home_reactor
+        smart_home_tcp
 )
 
 enable_testing()
@@ -139,6 +158,17 @@ target_link_libraries(reactor_test
 )
 
 add_test(NAME reactor_test COMMAND reactor_test)
+
+add_executable(tcp_server_test
+    test/TcpServerTest.cc
+)
+
+target_link_libraries(tcp_server_test
+    PRIVATE
+        smart_home_tcp
+)
+
+add_test(NAME tcp_server_test COMMAND tcp_server_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
