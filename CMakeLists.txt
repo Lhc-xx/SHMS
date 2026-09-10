@@ -99,6 +99,7 @@ add_library(smart_home_protocol
     src/Protocol.cc
     src/MessageDispatcher.cc
     src/UserProtocol.cc
+    src/ProtocolSession.cc
 )
 
 target_include_directories(smart_home_protocol
@@ -316,6 +317,17 @@ target_link_libraries(user_protocol_test
 )
 
 add_test(NAME user_protocol_test COMMAND user_protocol_test)
+
+add_executable(protocol_session_test
+    test/ProtocolSessionTest.cc
+)
+
+target_link_libraries(protocol_session_test
+    PRIVATE
+        smart_home_protocol
+)
+
+add_test(NAME protocol_session_test COMMAND protocol_session_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
