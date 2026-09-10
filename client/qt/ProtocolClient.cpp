@@ -69,7 +69,15 @@ ProtocolClient::ProtocolClient(QObject* parent)
 }
 
 void ProtocolClient::connectToServer(const QString& host, quint16 port) {
-    host_ = host.trimmed();
+    const QString requestedHost = host.trimmed();
+    // 注册成功后连接仍然有效，登录应复用同一条 TCP 连接。避免先 abort
+    // 再立即 connectToHost 造成旧连接的断开信号干扰新登录请求。
+    if (socket_.state() == QAbstractSocket::ConnectedState &&
+        host_ == requestedHost && port_ == port) {
+        return;
+    }
+
+    host_ = requestedHost;
     port_ = port;
     receiveBuffer_.clear();
     clearPendingOperation();
