@@ -99,7 +99,7 @@ ctest --test-dir build --output-on-failure
 
 ## 服务启动与日志验证
 
-默认监听地址为 `127.0.0.1:7777`，可在 `conf/server.conf` 中调整。
+默认监听地址为 `0.0.0.0:7777`，可在 `conf/server.conf` 中调整。云服务器需要在安全组和 Ubuntu 防火墙放行 TCP `7777`；如果只做本机验证，可以改为 `127.0.0.1`。
 
 ```bash
 mkdir -p data log
@@ -117,7 +117,11 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主程序已通过 `ProtocolTcpServer` 接入协议会话，协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理；配置数据库环境变量后，用户注册/登录消息会接入 MySQL DAO 和 `UserService`。摄像头协议以及视频和录像业务将在后续模块接入。
+## QT 客户端
+
+`client/qt/QtClient.pro` 是 Windows Qt 5.14.2 客户端工程，使用 32 位 Qt Kit 编译。客户端默认连接 `106.55.9.115:7777`，支持用户注册、登录、摄像头列表和 RTSP 实时画面。登录成功后，客户端在同一 TCP 连接上先请求 `2001` 列表，再使用 `2003` 查看指定摄像头；实时视频由客户端通过摄像头 RTSP 地址直接拉取，服务端负责认证、元数据和查看日志。具体的 Qt Creator、32 位 libVLC 部署和摄像头网络要求见 [`client/qt/README.md`](client/qt/README.md)。
+
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主程序已通过 `ProtocolTcpServer` 接入协议会话，协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理；配置数据库环境变量后，用户注册/登录消息会接入 MySQL DAO 和 `UserService`。服务端当前返回摄像头元数据和 RTSP 地址，视频由 QT 客户端直接播放，服务端视频转发和录像业务后续接入。
 
 数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。`database_test` 不需要真实数据库连接，会验证用户和摄像头 DAO 的输入校验；`user_service_test` 使用内存存储验证注册、登录、重复用户、错误密码和 MD5-crypt 兼容哈希。初始化用户和摄像头表可执行：
 
@@ -125,7 +129,7 @@ TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主�
 mysql -u <db_user> -p smart_home_monitor < database/schema.sql
 ```
 
-生产服务启动时会根据数据库环境变量创建 DAO、连接 MySQL，并幂等初始化 `t_user` 和 `t_camera` 表；摄像头缓存会在启动时加载，登录成功后可以通过摄像头协议读取列表。摄像头流转发和录像业务将在后续模块接入。
+生产服务启动时会根据数据库环境变量创建 DAO、连接 MySQL，并幂等初始化 `t_user` 和 `t_camera` 表；摄像头缓存会在启动时加载，登录成功后可以通过摄像头协议读取列表和摄像头信息，QT 客户端再使用返回的 RTSP 地址直接拉流。
 
 用户协议消息类型为 `1001/1002`（注册请求/响应）和 `1003/1004`（登录请求/响应）。注册/登录请求体依次为 `username_length(uint32)`、`username`、`password_length(uint32)`、`password`；响应体依次为 `code(uint32)`、`user_id(uint64)`、`message_length(uint32)`、`message`，整数均为网络字节序。协议处理器返回业务失败响应，不会把密码写入日志。
 

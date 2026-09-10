@@ -1,4 +1,7 @@
 /build*/
+/client/qt/.qmake/
+/client/qt/build-*/
+/client/qt/bin/
 *.user
 *.user.*
 *.log
