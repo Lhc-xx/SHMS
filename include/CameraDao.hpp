@@ -1,8 +1,8 @@
 #ifndef SMART_HOME_CAMERA_DAO_HPP
 #define SMART_HOME_CAMERA_DAO_HPP
 
-#include "MySqlClient.hpp"
 #include "CameraStore.hpp"
+#include "MySqlClient.hpp"
 
 #include <cstdint>
 #include <string>

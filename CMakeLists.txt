@@ -98,6 +98,7 @@ target_link_libraries(smart_home_tcp
 add_library(smart_home_protocol
     src/Protocol.cc
     src/MessageDispatcher.cc
+    src/UserProtocol.cc
 )
 
 target_include_directories(smart_home_protocol
@@ -163,6 +164,7 @@ target_link_libraries(smart_home_logger
 # UserService 编排注册和登录流程，使用 UserStore 隔离数据库实现，并复用日志模块。
 add_library(smart_home_user
     src/UserService.cc
+    src/UserProtocolHandler.cc
 )
 
 target_include_directories(smart_home_user
@@ -175,6 +177,7 @@ target_link_libraries(smart_home_user
         smart_home_database
         smart_home_logger
         smart_home_password
+        smart_home_protocol
         Threads::Threads
 )
 
@@ -302,6 +305,17 @@ target_link_libraries(camera_service_test
 )
 
 add_test(NAME camera_service_test COMMAND camera_service_test)
+
+add_executable(user_protocol_test
+    test/UserProtocolTest.cc
+)
+
+target_link_libraries(user_protocol_test
+    PRIVATE
+        smart_home_user
+)
+
+add_test(NAME user_protocol_test COMMAND user_protocol_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
