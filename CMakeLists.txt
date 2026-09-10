@@ -110,7 +110,7 @@ target_link_libraries(smart_home_protocol
         Threads::Threads
 )
 
-# Database 包含 MySQL RAII 客户端和首个 t_user DAO；密码哈希及用户会话规则仍由服务层负责。
+# Database 包含 MySQL RAII 客户端和首个 t_user DAO；密码哈希及用户业务规则由服务层负责。
 add_library(smart_home_database
     src/MySqlClient.cc
     src/UserDao.cc
@@ -125,6 +125,20 @@ target_include_directories(smart_home_database
 target_link_libraries(smart_home_database
     PUBLIC
         ${MYSQL_LIBRARY}
+        Threads::Threads
+)
+
+add_library(smart_home_password
+    src/PasswordHasher.cc
+)
+
+target_include_directories(smart_home_password
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_password
+    PUBLIC
         Threads::Threads
 )
 
@@ -145,6 +159,24 @@ target_link_libraries(smart_home_logger
         Threads::Threads
 )
 
+# UserService 编排注册和登录流程，使用 UserStore 隔离数据库实现，并复用日志模块。
+add_library(smart_home_user
+    src/UserService.cc
+)
+
+target_include_directories(smart_home_user
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_user
+    PUBLIC
+        smart_home_database
+        smart_home_logger
+        smart_home_password
+        Threads::Threads
+)
+
 # 启动程序负责校验启动配置并初始化日志，后续服务模块将在此处继续链接。
 add_executable(SmartHomeServer
     src/main.cc
@@ -158,6 +190,7 @@ target_link_libraries(SmartHomeServer
         smart_home_reactor
         smart_home_tcp
         smart_home_protocol
+        smart_home_user
 )
 
 enable_testing()
@@ -228,6 +261,17 @@ target_link_libraries(database_test
 )
 
 add_test(NAME database_test COMMAND database_test)
+
+add_executable(user_service_test
+    test/UserServiceTest.cc
+)
+
+target_link_libraries(user_service_test
+    PRIVATE
+        smart_home_user
+)
+
+add_test(NAME user_service_test COMMAND user_service_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
