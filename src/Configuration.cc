@@ -10,6 +10,7 @@
 
 namespace {
 
+// Remove whitespace around a token while keeping whitespace inside it intact.
 std::string trim(const std::string& value) {
     std::string::size_type begin = 0;
     while (begin < value.size() &&
@@ -26,6 +27,8 @@ std::string trim(const std::string& value) {
     return value.substr(begin, end - begin);
 }
 
+// Parse a decimal unsigned value without accepting signs, trailing text, or
+// values outside the requested range.
 bool parseUnsigned(const std::string& text,
                    unsigned long long maxValue,
                    unsigned long long* result) {
@@ -47,6 +50,8 @@ bool parseUnsigned(const std::string& text,
     return true;
 }
 
+// Add a line number to parser errors so a bad server.conf can be fixed from
+// the startup message without guessing which entry failed.
 bool setError(std::string* error,
               std::size_t lineNumber,
               const std::string& message) {
@@ -69,11 +74,15 @@ Configuration::Values::Values()
 Configuration::Configuration() {}
 
 Configuration& Configuration::instance() {
+    // Function-local static initialization is the Meyers singleton pattern
+    // and is synchronized by the C++11 runtime.
     static Configuration configuration;
     return configuration;
 }
 
 bool Configuration::load(const std::string& path) {
+    // Open before taking the mutex. Parsing does not touch shared state and
+    // therefore does not block readers during disk I/O.
     std::ifstream input(path.c_str());
     if (!input.is_open()) {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -81,6 +90,8 @@ bool Configuration::load(const std::string& path) {
         return false;
     }
 
+    // Parse into a temporary candidate. This gives load() a strong exception-
+    // and validation-failure guarantee: values_ changes only on success.
     Values candidate;
     bool hasIp = false;
     bool hasPort = false;
@@ -94,6 +105,9 @@ bool Configuration::load(const std::string& path) {
 
     while (std::getline(input, line)) {
         ++lineNumber;
+
+        // The configuration format uses '#' for both full-line and inline
+        // comments, as shown in conf/server.conf.
         const std::string::size_type comment = line.find('#');
         if (comment != std::string::npos) {
             line.erase(comment);
@@ -103,6 +117,8 @@ bool Configuration::load(const std::string& path) {
             continue;
         }
 
+        // A configuration entry is intentionally strict: exactly one key and
+        // one value prevents typos from silently changing server behavior.
         std::istringstream stream(line);
         std::string key;
         std::string value;
@@ -113,6 +129,8 @@ bool Configuration::load(const std::string& path) {
             break;
         }
 
+        // Keep the accepted keys explicit. Unknown keys and duplicate keys are
+        // rejected instead of being silently ignored.
         if (key == "ip") {
             if (hasIp) {
                 setError(&error, lineNumber, "duplicate key: ip");
@@ -201,6 +219,8 @@ bool Configuration::load(const std::string& path) {
         }
     }
 
+    // Check required fields after parsing so a syntactically valid but
+    // incomplete file cannot start the server with zero-valued settings.
     if (error.empty() && !hasIp) {
         error = "missing required key: ip";
     } else if (error.empty() && !hasPort) {
@@ -215,6 +235,8 @@ bool Configuration::load(const std::string& path) {
         error = "missing required key: log_file";
     }
 
+    // Commit the complete candidate atomically from the point of view of
+    // readers. On failure only lastError_ changes.
     std::lock_guard<std::mutex> lock(mutex_);
     if (!error.empty()) {
         lastError_ = error;

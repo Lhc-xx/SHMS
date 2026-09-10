@@ -25,10 +25,12 @@ void writeFile(const std::string& path, const std::string& content) {
 }  // namespace
 
 int main() {
+    // The function-local static must always return the same object.
     shms::Configuration& configuration = shms::Configuration::instance();
 
     expect(&configuration == &shms::Configuration::instance(),
            "Configuration is a singleton");
+    // Verify the documented server.conf format and all six required values.
     expect(configuration.load("../conf/server.conf"),
            "load the project configuration");
     expect(configuration.loaded(), "configuration reports loaded state");
@@ -39,6 +41,7 @@ int main() {
     expect(configuration.videoPath() == "./data/", "read video_path");
     expect(configuration.logFile() == "./log/server.log", "read log_file");
 
+    // Inline comments and maximum valid port values are accepted.
     const std::string validPath = "configuration_test_valid.conf";
     writeFile(validPath,
               "# comments and blank lines are allowed\n"
@@ -53,6 +56,7 @@ int main() {
     expect(configuration.port() == 65535, "read maximum valid port");
     std::remove(validPath.c_str());
 
+    // A failed reload must not replace the last valid in-memory configuration.
     const std::string invalidPath = "configuration_test_invalid.conf";
     writeFile(invalidPath,
               "ip 10.0.0.8\n"
