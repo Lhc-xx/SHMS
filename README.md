@@ -58,6 +58,8 @@ ctest --test-dir build --output-on-failure
 
 ## 服务启动与日志验证
 
+默认监听地址为 `127.0.0.1:7777`，可在 `conf/server.conf` 中调整。
+
 ```bash
 mkdir -p data log
 ./build/SmartHomeServer ./conf/server.conf
@@ -65,6 +67,14 @@ grep -E "server configuration loaded|server bootstrap completed" log/server.log
 ```
 
 成功时，终端会打印配置内容，`log/server.log` 会追加包含时间、级别、类别和消息的日志记录，并包含 `reactor initialized`、`TCP server listening` 启动记录。服务会持续运行，使用 `Ctrl+C` 停止。
+
+在云服务器的另一个终端验证端口和 TCP 连接：
+
+```bash
+ss -ltnp | grep ':7777'
+printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
+grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
+```
 
 TCP 层当前只负责可靠的非阻塞连接收发和生命周期管理，收到的数据暂不解析业务含义；TLV 协议模块完成后再接入登录、视频和录像消息。
 

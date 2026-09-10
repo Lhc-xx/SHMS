@@ -35,7 +35,7 @@ int main() {
            "load the project configuration");
     expect(configuration.loaded(), "configuration reports loaded state");
     expect(configuration.ip() == "127.0.0.1", "read ip");
-    expect(configuration.port() == 8000, "read port");
+    expect(configuration.port() == 7777, "read port");
     expect(configuration.threadNum() == 4, "read thread_num");
     expect(configuration.taskNum() == 10000, "read task_num");
     expect(configuration.videoPath() == "./data/", "read video_path");
