@@ -15,6 +15,7 @@
 - `UserProtocol`：定义注册/登录消息类型，并使用长度前缀字段编码用户请求和响应。
 - `UserProtocolHandler`：将用户协议请求接入 `UserService`，返回结构化结果码。
 - `ProtocolSession`：为每条 TCP 连接维护协议解析状态、消息分发和响应发送，并处理心跳。
+- `ProtocolTcpServer`：将 TCP 连接生命周期与 `ProtocolSession` 绑定，统一处理协议收包和异常断开。
 - `MySqlClient`：MySQL C API RAII 封装，所有带用户输入的 SQL 使用预处理参数绑定。
 - `UserDao`：实现 `t_user` 建表、用户创建和按用户名查询。
 - `CameraDao`：实现 `t_camera` 建表、摄像头创建、单个查询和列表查询。
@@ -71,6 +72,7 @@ ctest --test-dir build --output-on-failure
 - `camera_service_test`
 - `user_protocol_test`
 - `protocol_session_test`
+- `protocol_tcp_server_test`
 
 所有测试都通过后，再进行服务启动验证。
 
@@ -94,7 +96,7 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理，用户注册/登录服务层、用户协议处理器和摄像头列表缓存服务已经完成；TCP 连接级会话接入具体服务、数据库连接配置以及视频和录像业务将在后续模块接入。
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析、连接级会话、TCP 会话适配、消息分发和心跳处理，用户注册/登录服务层、用户协议处理器和摄像头列表缓存服务已经完成；具体 TCP 会话接入数据库业务、数据库连接配置以及视频和录像业务将在后续模块接入。
 
 数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。`database_test` 不需要真实数据库连接，会验证用户和摄像头 DAO 的输入校验；`user_service_test` 使用内存存储验证注册、登录、重复用户、错误密码和 MD5-crypt 兼容哈希。初始化用户和摄像头表可执行：
 

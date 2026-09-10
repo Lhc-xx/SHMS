@@ -112,6 +112,23 @@ target_link_libraries(smart_home_protocol
         Threads::Threads
 )
 
+# ProtocolTcpServer 为每条 TCP 连接创建 ProtocolSession，并负责会话生命周期。
+add_library(smart_home_protocol_server
+    src/ProtocolTcpServer.cc
+)
+
+target_include_directories(smart_home_protocol_server
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_protocol_server
+    PUBLIC
+        smart_home_tcp
+        smart_home_protocol
+        Threads::Threads
+)
+
 # Database 包含 MySQL RAII 客户端、用户 DAO 和摄像头 DAO；密码哈希及业务规则由服务层负责。
 add_library(smart_home_database
     src/MySqlClient.cc
@@ -212,6 +229,7 @@ target_link_libraries(SmartHomeServer
         smart_home_reactor
         smart_home_tcp
         smart_home_protocol
+        smart_home_protocol_server
         smart_home_user
         smart_home_camera
 )
@@ -328,6 +346,17 @@ target_link_libraries(protocol_session_test
 )
 
 add_test(NAME protocol_session_test COMMAND protocol_session_test)
+
+add_executable(protocol_tcp_server_test
+    test/ProtocolTcpServerTest.cc
+)
+
+target_link_libraries(protocol_tcp_server_test
+    PRIVATE
+        smart_home_protocol_server
+)
+
+add_test(NAME protocol_tcp_server_test COMMAND protocol_tcp_server_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
