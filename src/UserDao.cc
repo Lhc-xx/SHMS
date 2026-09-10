@@ -13,8 +13,8 @@ const char kCreateUserTableSql[] =
     "CREATE TABLE IF NOT EXISTS t_user ("
     "id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,"
     "name VARCHAR(20) NOT NULL,"
-    "setting CHAR(64) NOT NULL,"
-    "encrypt CHAR(64) NOT NULL,"
+    "setting VARCHAR(64) NOT NULL,"
+    "encrypt VARCHAR(64) NOT NULL,"
     "PRIMARY KEY (id),"
     "UNIQUE KEY uk_t_user_name (name)"
     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -33,6 +33,16 @@ bool parseId(const std::string& text, std::uint64_t* value) {
     }
     *value = static_cast<std::uint64_t>(parsed);
     return true;
+}
+
+// MySQL 的 CHAR 字段在部分 SQL 模式下读取时会保留右侧填充空格。
+// setting 和 encrypt 都是格式化后的密码字段，右侧空格不能参与校验。
+std::string trimTrailingSpaces(const std::string& value) {
+    std::string::size_type end = value.size();
+    while (end > 0U && value[end - 1U] == ' ') {
+        --end;
+    }
+    return value.substr(0, end);
 }
 
 }  // 匿名命名空间
@@ -108,8 +118,8 @@ bool UserDao::findByName(const std::string& name,
         return setError("unexpected t_user result shape");
     }
     record->name = rows[0][1];
-    record->setting = rows[0][2];
-    record->encrypt = rows[0][3];
+    record->setting = trimTrailingSpaces(rows[0][2]);
+    record->encrypt = trimTrailingSpaces(rows[0][3]);
     *found = true;
     clearError();
     return true;
