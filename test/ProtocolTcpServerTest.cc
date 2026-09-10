@@ -64,6 +64,20 @@ int main() {
     expect(reactor.initialize(), "initialize Reactor");
 
     shms::ProtocolTcpServer server(reactor, "127.0.0.1", 0);
+    std::atomic<int> connectedCallbacks(0);
+    std::atomic<int> closeCallbacks(0);
+    std::atomic<bool> protocolErrorSeen(false);
+    server.setConnectionHandler(
+        [&connectedCallbacks](shms::TcpConnection&) {
+            connectedCallbacks.fetch_add(1);
+        });
+    server.setCloseHandler([&closeCallbacks](shms::TcpConnection&) {
+        closeCallbacks.fetch_add(1);
+    });
+    server.setProtocolErrorHandler(
+        [&protocolErrorSeen](shms::TcpConnection&, const std::string&) {
+            protocolErrorSeen.store(true);
+        });
     server.setSessionConfigurer([](shms::ProtocolSession& session) {
         return session.registerHandler(
             1234,
@@ -97,6 +111,10 @@ int main() {
            "connect protocol TCP client");
     expect(waitFor([&server]() { return server.sessionCount() == 1U; }),
            "create a protocol session for the connection");
+    expect(waitFor([&connectedCallbacks]() {
+               return connectedCallbacks.load() == 1;
+           }),
+           "notify the connection callback");
 
     std::string request;
     expect(shms::ProtocolCodec::encode(1234, "hello", &request),
@@ -135,9 +153,35 @@ int main() {
     expect(response == heartbeatResponse,
            "return heartbeat response over TCP");
 
+    const int invalidClient = ::socket(AF_INET, SOCK_STREAM, 0);
+    expect(invalidClient >= 0, "create invalid protocol client");
+    expect(::connect(invalidClient,
+                     reinterpret_cast<const sockaddr*>(&address),
+                     sizeof(address)) == 0,
+           "connect invalid protocol client");
+    expect(waitFor([&server]() { return server.sessionCount() == 2U; }),
+           "create a session for the invalid protocol client");
+    std::string unknownMessage;
+    expect(shms::ProtocolCodec::encode(9999, "invalid", &unknownMessage),
+           "encode an unknown protocol message");
+    expect(::send(invalidClient,
+                  unknownMessage.data(),
+                  unknownMessage.size(),
+                  0) > 0,
+           "send an unknown protocol message");
+    expect(waitFor([&protocolErrorSeen]() { return protocolErrorSeen.load(); }),
+           "notify the protocol error callback");
+    expect(waitFor([&server]() { return server.sessionCount() == 1U; }),
+           "close the connection after a protocol error");
+    ::close(invalidClient);
+    expect(waitFor([&closeCallbacks]() { return closeCallbacks.load() == 1; }),
+           "notify the close callback after a protocol error");
+
     ::close(client);
     expect(waitFor([&server]() { return server.sessionCount() == 0U; }),
            "release the protocol session after disconnect");
+    expect(waitFor([&closeCallbacks]() { return closeCallbacks.load() == 2; }),
+           "notify the close callback after a client disconnect");
 
     server.stop();
     reactor.stop();

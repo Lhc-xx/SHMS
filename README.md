@@ -22,7 +22,7 @@
 - `CameraService`：在用户登录后加载摄像头列表到内存，提供按 ID 查询和查看日志。
 - `PasswordHasher`：实现与 `$1$` MD5-crypt 兼容的加盐密码生成和校验。
 - `UserService`：实现用户注册、用户登录、重复用户/错误密码处理，并通过依赖抽象隔离 DAO。
-- `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和 TCP 监听，并进入 Reactor 事件循环。
+- `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和协议 TCP 服务，并进入 Reactor 事件循环。
 - 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发、协议分包/粘包、消息分发和 DAO 输入校验。
 
 ## 目录结构
@@ -96,7 +96,7 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析、连接级会话、TCP 会话适配、消息分发和心跳处理，用户注册/登录服务层、用户协议处理器和摄像头列表缓存服务已经完成；具体 TCP 会话接入数据库业务、数据库连接配置以及视频和录像业务将在后续模块接入。
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。服务端主程序已通过 `ProtocolTcpServer` 接入协议会话，协议层已完成通用 TLV 帧解析、连接级会话、消息分发和心跳处理，用户注册/登录服务层、用户协议处理器和摄像头列表缓存服务已经完成；具体 TCP 会话接入数据库业务、数据库连接配置以及视频和录像业务将在后续模块接入。
 
 数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。`database_test` 不需要真实数据库连接，会验证用户和摄像头 DAO 的输入校验；`user_service_test` 使用内存存储验证注册、登录、重复用户、错误密码和 MD5-crypt 兼容哈希。初始化用户和摄像头表可执行：
 

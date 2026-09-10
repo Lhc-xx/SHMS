@@ -18,7 +18,10 @@ namespace shms {
 // 协议格式错误、未知消息或响应发送失败都会关闭当前连接，避免继续使用失步的字节流。
 class ProtocolTcpServer {
 public:
+    using ConnectionHandler = std::function<void(TcpConnection&)>;
     using SessionConfigurer = std::function<bool(ProtocolSession&)>;
+    using ProtocolErrorHandler =
+        std::function<void(TcpConnection&, const std::string&)>;
 
     ProtocolTcpServer(Reactor& reactor,
                       const std::string& bindIp,
@@ -41,6 +44,13 @@ public:
     // 为每条新连接配置协议处理器；返回 false 时该连接不会继续提供服务。
     void setSessionConfigurer(SessionConfigurer configurer);
 
+    // 设置连接建立和关闭回调，供服务端记录连接生命周期日志。
+    void setConnectionHandler(ConnectionHandler handler);
+    void setCloseHandler(ConnectionHandler handler);
+
+    // 设置协议错误回调。回调完成后，出错连接会被关闭。
+    void setProtocolErrorHandler(ProtocolErrorHandler handler);
+
     std::string lastError() const;
 
 private:
@@ -54,6 +64,8 @@ private:
     void handleConnection(TcpConnection& connection);
     void handleData(TcpConnection& connection, const std::string& data);
     void handleClose(TcpConnection& connection);
+    void notifyProtocolError(TcpConnection& connection,
+                             const std::string& message);
     bool setError(const std::string& message);
     void clearError();
 
@@ -61,6 +73,9 @@ private:
     mutable std::mutex mutex_;
     std::map<int, SessionEntry> sessions_;
     SessionConfigurer sessionConfigurer_;
+    ConnectionHandler connectionHandler_;
+    ConnectionHandler closeHandler_;
+    ProtocolErrorHandler protocolErrorHandler_;
 
     mutable std::mutex errorMutex_;
     std::string lastError_;

@@ -1,7 +1,7 @@
 #include "Configuration.hpp"
 #include "MyLogger.hpp"
+#include "ProtocolTcpServer.hpp"
 #include "Reactor.hpp"
-#include "TcpServer.hpp"
 #include "ThreadPool.hpp"
 
 #include <cstdlib>
@@ -40,8 +40,8 @@ int main(int argc, char* argv[]) {
     }
     logger.info("thread pool started");
 
-    // 在启动阶段初始化网络事件循环，并由 TcpServer 注册监听套接字；随后
-    // run() 将在服务生命周期内持续处理网络事件。
+    // 在启动阶段初始化网络事件循环，并由 ProtocolTcpServer 注册监听套接字；
+    // 随后 run() 将在服务生命周期内持续处理网络事件。
     shms::Reactor reactor;
     if (!reactor.initialize()) {
         logger.error("reactor initialization failed: " + reactor.lastError());
@@ -53,38 +53,37 @@ int main(int argc, char* argv[]) {
     }
     logger.info("reactor initialized");
 
-    // TcpServer 负责监听套接字和已接收连接的所有权，所有就绪通知仍由单个
-    // Reactor 线程处理。
-    shms::TcpServer tcpServer(reactor,
-                              configuration.ip(),
-                              configuration.port());
-    tcpServer.setConnectionHandler([&logger](shms::TcpConnection& connection) {
-        logger.info("tcp client connected: fd=" +
-                    std::to_string(connection.fd()));
-    });
-    tcpServer.setMessageHandler([&logger](shms::TcpConnection& connection,
-                                          const std::string& data) {
-        // 不记录客户端消息体，后续由协议层负责解释。记录字节数已经足够
-        // 用于传输层跟踪。
-        logger.debug("tcp data received: fd=" +
-                     std::to_string(connection.fd()) +
-                     ", bytes=" + std::to_string(data.size()));
-    });
-    tcpServer.setCloseHandler([&logger](shms::TcpConnection&) {
+    // ProtocolTcpServer 负责监听套接字、协议解析和每条连接的会话生命周期；
+    // 所有就绪通知仍由单个 Reactor 线程处理。
+    shms::ProtocolTcpServer protocolServer(reactor,
+                                           configuration.ip(),
+                                           configuration.port());
+    protocolServer.setConnectionHandler(
+        [&logger](shms::TcpConnection& connection) {
+            logger.info("tcp client connected: fd=" +
+                        std::to_string(connection.fd()));
+        });
+    protocolServer.setCloseHandler([&logger](shms::TcpConnection&) {
         logger.info("tcp client disconnected");
     });
-    if (!tcpServer.start()) {
+    protocolServer.setProtocolErrorHandler(
+        [&logger](shms::TcpConnection& connection,
+                  const std::string& message) {
+            logger.warn("protocol error: fd=" +
+                        std::to_string(connection.fd()) + ", error=" + message);
+        });
+    if (!protocolServer.start()) {
         logger.error("TCP server initialization failed: " +
-                     tcpServer.lastError());
+                     protocolServer.lastError());
         std::cerr << "Failed to initialize TCP server: "
-                  << tcpServer.lastError() << std::endl;
+                  << protocolServer.lastError() << std::endl;
         reactor.shutdown();
         threadPool.stop();
         logger.shutdown();
         return EXIT_FAILURE;
     }
     logger.info("TCP server listening on " + configuration.ip() + ":" +
-                std::to_string(tcpServer.port()));
+                std::to_string(protocolServer.port()));
     logger.info("server configuration loaded");
 
     std::cout << "Configuration loaded successfully" << std::endl
@@ -95,12 +94,12 @@ int main(int argc, char* argv[]) {
               << "video_path=" << configuration.videoPath() << std::endl
               << "log_file=" << configuration.logFile() << std::endl;
     logger.info("server bootstrap completed");
-    // TCP 模块是当前长期运行的服务边界。后续协议模块将把此回调收到的消息
-    // 路由到业务处理器，而不仅仅是跟踪传输活动。
+    // 协议层已经接管 TCP 收包和心跳响应；后续业务模块通过会话配置器注册
+    // 用户、摄像头等消息处理器。
     if (!reactor.run()) {
         logger.error("reactor stopped with error: " + reactor.lastError());
     }
-    tcpServer.stop();
+    protocolServer.stop();
     reactor.shutdown();
     threadPool.stop();
     logger.info("thread pool stopped");

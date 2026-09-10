@@ -61,6 +61,22 @@ void ProtocolTcpServer::setSessionConfigurer(SessionConfigurer configurer) {
     sessionConfigurer_ = std::move(configurer);
 }
 
+void ProtocolTcpServer::setConnectionHandler(ConnectionHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    connectionHandler_ = std::move(handler);
+}
+
+void ProtocolTcpServer::setCloseHandler(ConnectionHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    closeHandler_ = std::move(handler);
+}
+
+void ProtocolTcpServer::setProtocolErrorHandler(
+    ProtocolErrorHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    protocolErrorHandler_ = std::move(handler);
+}
+
 std::string ProtocolTcpServer::lastError() const {
     std::lock_guard<std::mutex> lock(errorMutex_);
     return lastError_;
@@ -90,6 +106,26 @@ void ProtocolTcpServer::handleConnection(TcpConnection& connection) {
         entry.session = session;
         sessions_[connection.fd()] = entry;
     }
+
+    ConnectionHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        handler = connectionHandler_;
+    }
+    if (handler) {
+        try {
+            handler(connection);
+        } catch (const std::exception& exception) {
+            setError(std::string("connection callback failed: ") +
+                     exception.what());
+            connection.close();
+            return;
+        } catch (...) {
+            setError("connection callback failed with a non-standard exception");
+            connection.close();
+            return;
+        }
+    }
     clearError();
 }
 
@@ -106,24 +142,60 @@ void ProtocolTcpServer::handleData(TcpConnection& connection,
     }
     if (!session) {
         setError("protocol session is missing for TCP connection");
+        notifyProtocolError(connection, lastError());
         connection.close();
         return;
     }
     if (!session->onData(data)) {
         setError(session->lastError());
+        notifyProtocolError(connection, lastError());
         connection.close();
     }
 }
 
 void ProtocolTcpServer::handleClose(TcpConnection& connection) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (std::map<int, SessionEntry>::iterator it = sessions_.begin();
-         it != sessions_.end();
-         ++it) {
-        if (it->second.connection == &connection) {
-            sessions_.erase(it);
-            return;
+    ConnectionHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (std::map<int, SessionEntry>::iterator it = sessions_.begin();
+             it != sessions_.end();
+             ++it) {
+            if (it->second.connection == &connection) {
+                sessions_.erase(it);
+                handler = closeHandler_;
+                break;
+            }
         }
+    }
+    if (handler) {
+        try {
+            handler(connection);
+        } catch (const std::exception& exception) {
+            setError(std::string("close callback failed: ") +
+                     exception.what());
+        } catch (...) {
+            setError("close callback failed with a non-standard exception");
+        }
+    }
+}
+
+void ProtocolTcpServer::notifyProtocolError(TcpConnection& connection,
+                                             const std::string& message) {
+    ProtocolErrorHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        handler = protocolErrorHandler_;
+    }
+    if (!handler) {
+        return;
+    }
+    try {
+        handler(connection, message);
+    } catch (const std::exception& exception) {
+        setError(std::string("protocol error callback failed: ") +
+                 exception.what());
+    } catch (...) {
+        setError("protocol error callback failed with a non-standard exception");
     }
 }
 
