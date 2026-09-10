@@ -1,6 +1,6 @@
 # Smart Home Monitoring System
 
-智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool、Reactor、TCP 通信和 TLV 协议基础模块，为后续业务模块提供启动基础。
+智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool、Reactor、TCP 通信、TLV 协议和 MySQL 用户 DAO 基础模块，为后续用户业务模块提供启动基础。
 
 ## 当前实现
 
@@ -12,8 +12,10 @@
 - `TcpServer`：IPv4 监听、接受连接、连接生命周期管理和 Reactor 事件注册。
 - `ProtocolParser`：解析 `Type(4) + Length(4) + Body` 网络字节序帧，支持 TCP 分包/粘包和最大消息体限制。
 - `MessageDispatcher`：按消息类型注册和调用业务处理器，隔离协议解析与业务逻辑。
+- `MySqlClient`：MySQL C API RAII 封装，所有带用户输入的 SQL 使用预处理参数绑定。
+- `UserDao`：实现 `t_user` 建表、用户创建和按用户名查询。
 - `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和 TCP 监听，并进入 Reactor 事件循环。
-- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发、协议分包/粘包和消息分发。
+- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发、协议分包/粘包、消息分发和 DAO 输入校验。
 
 ## 目录结构
 
@@ -22,6 +24,7 @@ include/       公共头文件
 src/           服务端源代码
 test/          单元测试
 conf/          服务端配置
+database/      数据库建表脚本
 data/          录像文件目录
 log/           运行日志目录
 docs/          需求、设计和测试文档
@@ -33,10 +36,10 @@ docs/          需求、设计和测试文档
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y g++ cmake make liblog4cpp5-dev
+sudo apt-get install -y g++ cmake make liblog4cpp5-dev default-libmysqlclient-dev
 ```
 
-`CMakeLists.txt` 会检查 `log4cpp/Category.hh` 和 `liblog4cpp`。如果依赖缺失，配置阶段会直接失败，避免服务端误用未配置的日志实现。
+`CMakeLists.txt` 会检查 `log4cpp/Category.hh`、`liblog4cpp` 和 MySQL 客户端库。如果依赖缺失，配置阶段会直接失败，避免服务端误用未配置的第三方依赖。
 
 ## 构建与测试
 
@@ -56,6 +59,7 @@ ctest --test-dir build --output-on-failure
 - `reactor_test`
 - `tcp_server_test`
 - `protocol_test`
+- `database_test`
 
 所有测试都通过后，再进行服务启动验证。
 
@@ -80,6 +84,14 @@ grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/
 ```
 
 TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析和消息分发，登录、视频和录像的具体字段及业务处理器将在后续模块接入。
+
+数据库层当前不在 `server.conf` 中保存账号密码，需由部署环境向 `MySqlClient::connect()` 提供连接参数。初始化用户表可执行：
+
+```bash
+mysql -u <db_user> -p smart_home_monitor < database/schema.sql
+```
+
+`database_test` 不需要真实数据库连接；用户注册/登录业务和 MD5 兼容处理将在后续服务层接入。
 
 业务模块完成用户注册、用户登录或查看摄像头后，应调用以下接口记录操作：
 

@@ -18,6 +18,16 @@ if(NOT LOG4CPP_INCLUDE_DIR OR NOT LOG4CPP_LIBRARY)
         "log4cpp is required. Install it with: sudo apt-get install liblog4cpp5-dev")
 endif()
 
+# UserDao uses the prepared-statement API from the MySQL-compatible client
+# library. Keep this dependency explicit so cloud builds fail with a useful
+# installation hint instead of silently using unsafe SQL concatenation.
+find_path(MYSQL_INCLUDE_DIR NAMES mysql/mysql.h mysql.h)
+find_library(MYSQL_LIBRARY NAMES mysqlclient mariadb)
+if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
+    message(FATAL_ERROR
+        "MySQL client is required. Install it with: sudo apt-get install default-libmysqlclient-dev")
+endif()
+
 if(MSVC)
     add_compile_options(/W4 /permissive-)
 else()
@@ -104,6 +114,25 @@ target_include_directories(smart_home_protocol
 
 target_link_libraries(smart_home_protocol
     PUBLIC
+        Threads::Threads
+)
+
+# Database contains the MySQL RAII client and the first t_user DAO. Password
+# hashing and user-session business rules remain in the service layer.
+add_library(smart_home_database
+    src/MySqlClient.cc
+    src/UserDao.cc
+)
+
+target_include_directories(smart_home_database
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${MYSQL_INCLUDE_DIR}
+)
+
+target_link_libraries(smart_home_database
+    PUBLIC
+        ${MYSQL_LIBRARY}
         Threads::Threads
 )
 
@@ -198,6 +227,17 @@ target_link_libraries(protocol_test
 )
 
 add_test(NAME protocol_test COMMAND protocol_test)
+
+add_executable(database_test
+    test/DatabaseTest.cc
+)
+
+target_link_libraries(database_test
+    PRIVATE
+        smart_home_database
+)
+
+add_test(NAME database_test COMMAND database_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc
