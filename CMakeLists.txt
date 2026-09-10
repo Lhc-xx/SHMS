@@ -90,6 +90,23 @@ target_link_libraries(smart_home_tcp
         Threads::Threads
 )
 
+# Protocol parses the Type/Length/Value stream and dispatches decoded messages
+# without coupling the transport layer to login or camera business logic.
+add_library(smart_home_protocol
+    src/Protocol.cc
+    src/MessageDispatcher.cc
+)
+
+target_include_directories(smart_home_protocol
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_protocol
+    PUBLIC
+        Threads::Threads
+)
+
 # MyLogger contains the only direct dependency on log4cpp.
 add_library(smart_home_logger
     src/MyLogger.cc
@@ -120,6 +137,7 @@ target_link_libraries(SmartHomeServer
         smart_home_thread_pool
         smart_home_reactor
         smart_home_tcp
+        smart_home_protocol
 )
 
 enable_testing()
@@ -169,6 +187,17 @@ target_link_libraries(tcp_server_test
 )
 
 add_test(NAME tcp_server_test COMMAND tcp_server_test)
+
+add_executable(protocol_test
+    test/ProtocolTest.cc
+)
+
+target_link_libraries(protocol_test
+    PRIVATE
+        smart_home_protocol
+)
+
+add_test(NAME protocol_test COMMAND protocol_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc

@@ -1,6 +1,6 @@
 # Smart Home Monitoring System
 
-智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool、Reactor 和 TCP 通信基础模块，为后续协议和业务模块提供启动基础。
+智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志、ThreadPool、Reactor、TCP 通信和 TLV 协议基础模块，为后续业务模块提供启动基础。
 
 ## 当前实现
 
@@ -10,8 +10,10 @@
 - `Reactor`：基于 Linux `epoll + eventfd` 的单线程事件循环，支持文件描述符注册、修改、移除和跨线程唤醒停止。
 - `TcpConnection`：非阻塞 TCP 连接、收包回调、发送队列和 4 MB 待发送数据上限。
 - `TcpServer`：IPv4 监听、接受连接、连接生命周期管理和 Reactor 事件注册。
+- `ProtocolParser`：解析 `Type(4) + Length(4) + Body` 网络字节序帧，支持 TCP 分包/粘包和最大消息体限制。
+- `MessageDispatcher`：按消息类型注册和调用业务处理器，隔离协议解析与业务逻辑。
 - `SmartHomeServer`：启动时读取配置、初始化日志、启动工作线程池和 TCP 监听，并进入 Reactor 事件循环。
-- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发和优雅停止。
+- 单元测试：配置解析、错误回滚、日志级别、业务操作日志、并发写入、Reactor 事件分发、TCP 回环收发、协议分包/粘包和消息分发。
 
 ## 目录结构
 
@@ -53,6 +55,7 @@ ctest --test-dir build --output-on-failure
 - `thread_pool_test`
 - `reactor_test`
 - `tcp_server_test`
+- `protocol_test`
 
 所有测试都通过后，再进行服务启动验证。
 
@@ -76,7 +79,7 @@ printf 'tcp-probe' | nc -w 2 127.0.0.1 7777
 grep -E "TCP server listening|tcp client connected|tcp client disconnected" log/server.log
 ```
 
-TCP 层当前只负责可靠的非阻塞连接收发和生命周期管理，收到的数据暂不解析业务含义；TLV 协议模块完成后再接入登录、视频和录像消息。
+TCP 层负责可靠的非阻塞连接收发和生命周期管理。协议层已完成通用 TLV 帧解析和消息分发，登录、视频和录像的具体字段及业务处理器将在后续模块接入。
 
 业务模块完成用户注册、用户登录或查看摄像头后，应调用以下接口记录操作：
 
