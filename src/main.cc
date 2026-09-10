@@ -1,5 +1,6 @@
 #include "Configuration.hpp"
 #include "MyLogger.hpp"
+#include "ThreadPool.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -26,6 +27,18 @@ int main(int argc, char* argv[]) {
                   << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Build the worker pool from the server configuration. The current
+    // bootstrap exits after proving startup/cleanup; Reactor will submit real
+    // client tasks here in the next framework increment.
+    shms::ThreadPool threadPool(configuration.threadNum(),
+                                configuration.taskNum());
+    if (!threadPool.start()) {
+        logger.error("thread pool initialization failed");
+        std::cerr << "Failed to initialize thread pool" << std::endl;
+        return EXIT_FAILURE;
+    }
+    logger.info("thread pool started");
     logger.info("server configuration loaded");
 
     std::cout << "Configuration loaded successfully" << std::endl
@@ -36,6 +49,8 @@ int main(int argc, char* argv[]) {
               << "video_path=" << configuration.videoPath() << std::endl
               << "log_file=" << configuration.logFile() << std::endl;
     logger.info("server bootstrap completed");
+    threadPool.stop();
+    logger.info("thread pool stopped");
     logger.shutdown();
     return EXIT_SUCCESS;
 }

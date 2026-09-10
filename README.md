@@ -1,12 +1,13 @@
 # Smart Home Monitoring System
 
-智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件模块和服务器日志模块，为后续 Reactor、ThreadPool、协议和业务模块提供启动基础。
+智能家居监控系统服务端项目，服务端目标环境为 Ubuntu 22.04，使用 C++11 和 CMake 构建。当前开发阶段完成了配置文件、服务器日志和 ThreadPool 基础模块，为后续 Reactor、协议和业务模块提供启动基础。
 
 ## 当前实现
 
 - `Configuration`：单例配置对象，读取并校验 `conf/server.conf`。
 - `MyLogger`：单例日志对象，使用 `log4cpp` 写入服务端日志文件。
-- `SmartHomeServer`：启动时读取配置并初始化日志。
+- `ThreadPool`：有界任务队列和可优雅停止的 C++11 工作线程池。
+- `SmartHomeServer`：启动时读取配置、初始化日志并启动工作线程池。
 - 单元测试：配置解析、错误回滚、日志级别、业务操作日志和并发写入。
 
 ## 目录结构
@@ -46,8 +47,9 @@ ctest --test-dir build --output-on-failure
 
 - `configuration_test`
 - `my_logger_test`
+- `thread_pool_test`
 
-两个测试都通过后，再进行服务启动验证。
+所有测试都通过后，再进行服务启动验证。
 
 ## 服务启动与日志验证
 

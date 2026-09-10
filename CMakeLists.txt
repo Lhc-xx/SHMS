@@ -40,6 +40,22 @@ target_link_libraries(smart_home_configuration
         Threads::Threads
 )
 
+# ThreadPool owns the worker threads used by the future Reactor business
+# dispatch path and is independently testable without network dependencies.
+add_library(smart_home_thread_pool
+    src/ThreadPool.cc
+)
+
+target_include_directories(smart_home_thread_pool
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_thread_pool
+    PUBLIC
+        Threads::Threads
+)
+
 # MyLogger contains the only direct dependency on log4cpp.
 add_library(smart_home_logger
     src/MyLogger.cc
@@ -67,6 +83,7 @@ target_link_libraries(SmartHomeServer
     PRIVATE
         smart_home_configuration
         smart_home_logger
+        smart_home_thread_pool
 )
 
 enable_testing()
@@ -83,6 +100,17 @@ target_link_libraries(configuration_test
 )
 
 add_test(NAME configuration_test COMMAND configuration_test)
+
+add_executable(thread_pool_test
+    test/ThreadPoolTest.cc
+)
+
+target_link_libraries(thread_pool_test
+    PRIVATE
+        smart_home_thread_pool
+)
+
+add_test(NAME thread_pool_test COMMAND thread_pool_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc

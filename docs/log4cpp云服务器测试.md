@@ -19,7 +19,7 @@ cmake --build build --parallel 4
 ctest --test-dir build --output-on-failure
 ```
 
-预期结果：`configuration_test` 和 `my_logger_test` 均通过。
+预期结果：`configuration_test`、`my_logger_test` 和 `thread_pool_test` 均通过。
 
 ## 3. 启动验证
 
