@@ -56,6 +56,22 @@ target_link_libraries(smart_home_thread_pool
         Threads::Threads
 )
 
+# Reactor owns the Linux epoll/eventfd event loop. It has no third-party
+# dependency, so TCP and protocol modules can build on top of this target.
+add_library(smart_home_reactor
+    src/Reactor.cc
+)
+
+target_include_directories(smart_home_reactor
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(smart_home_reactor
+    PUBLIC
+        Threads::Threads
+)
+
 # MyLogger contains the only direct dependency on log4cpp.
 add_library(smart_home_logger
     src/MyLogger.cc
@@ -84,6 +100,7 @@ target_link_libraries(SmartHomeServer
         smart_home_configuration
         smart_home_logger
         smart_home_thread_pool
+        smart_home_reactor
 )
 
 enable_testing()
@@ -111,6 +128,17 @@ target_link_libraries(thread_pool_test
 )
 
 add_test(NAME thread_pool_test COMMAND thread_pool_test)
+
+add_executable(reactor_test
+    test/ReactorTest.cc
+)
+
+target_link_libraries(reactor_test
+    PRIVATE
+        smart_home_reactor
+)
+
+add_test(NAME reactor_test COMMAND reactor_test)
 
 add_executable(my_logger_test
     test/MyLoggerTest.cc

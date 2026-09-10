@@ -1,5 +1,6 @@
 #include "Configuration.hpp"
 #include "MyLogger.hpp"
+#include "Reactor.hpp"
 #include "ThreadPool.hpp"
 
 #include <cstdlib>
@@ -39,6 +40,20 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     logger.info("thread pool started");
+
+    // Initialize the network event loop during bootstrap. TcpServer will
+    // register the listening socket in the next increment before run() owns
+    // the server thread for its full lifetime.
+    shms::Reactor reactor;
+    if (!reactor.initialize()) {
+        logger.error("reactor initialization failed: " + reactor.lastError());
+        std::cerr << "Failed to initialize reactor: " << reactor.lastError()
+                  << std::endl;
+        threadPool.stop();
+        logger.shutdown();
+        return EXIT_FAILURE;
+    }
+    logger.info("reactor initialized");
     logger.info("server configuration loaded");
 
     std::cout << "Configuration loaded successfully" << std::endl
@@ -49,6 +64,7 @@ int main(int argc, char* argv[]) {
               << "video_path=" << configuration.videoPath() << std::endl
               << "log_file=" << configuration.logFile() << std::endl;
     logger.info("server bootstrap completed");
+    reactor.shutdown();
     threadPool.stop();
     logger.info("thread pool stopped");
     logger.shutdown();
