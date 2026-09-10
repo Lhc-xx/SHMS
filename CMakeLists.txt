@@ -110,10 +110,11 @@ target_link_libraries(smart_home_protocol
         Threads::Threads
 )
 
-# Database 包含 MySQL RAII 客户端和首个 t_user DAO；密码哈希及用户业务规则由服务层负责。
+# Database 包含 MySQL RAII 客户端、用户 DAO 和摄像头 DAO；密码哈希及用户业务规则由服务层负责。
 add_library(smart_home_database
     src/MySqlClient.cc
     src/UserDao.cc
+    src/CameraDao.cc
 )
 
 target_include_directories(smart_home_database

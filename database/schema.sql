@@ -8,3 +8,16 @@ CREATE TABLE IF NOT EXISTS t_user (
     PRIMARY KEY (id),
     UNIQUE KEY uk_t_user_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 摄像头基础信息表：type 为 0 表示枪机，1 表示球机。
+CREATE TABLE IF NOT EXISTS t_camera (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    type TINYINT UNSIGNED NOT NULL,
+    serial_no VARCHAR(64) NOT NULL,
+    channels SMALLINT UNSIGNED NOT NULL,
+    ip VARCHAR(45) NOT NULL,
+    rtsp VARCHAR(512) NOT NULL,
+    rtmp VARCHAR(512) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_t_camera_serial_no (serial_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

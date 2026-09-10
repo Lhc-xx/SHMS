@@ -1,3 +1,4 @@
+#include "CameraDao.hpp"
 #include "MySqlClient.hpp"
 #include "UserDao.hpp"
 
@@ -43,6 +44,38 @@ int main() {
     expect(!dao.findByName("", &record, &found),
            "reject empty lookup name");
     expect(!found, "leave lookup result false on validation failure");
+
+    shms::CameraDao cameraDao(client);
+    expect(!cameraDao.createCamera(2,
+                                   "camera-001",
+                                   2,
+                                   "192.168.1.10",
+                                   "rtsp://camera/stream",
+                                   "rtmp://camera/live"),
+           "reject an unknown camera type");
+    expect(cameraDao.lastError().find("0 or 1") != std::string::npos,
+           "explain camera type validation");
+    expect(!cameraDao.createCamera(0,
+                                   "",
+                                   2,
+                                   "192.168.1.10",
+                                   "rtsp://camera/stream",
+                                   "rtmp://camera/live"),
+           "reject an empty camera serial number");
+    expect(!cameraDao.createCamera(0,
+                                   "camera-001",
+                                   0,
+                                   "192.168.1.10",
+                                   "rtsp://camera/stream",
+                                   "rtmp://camera/live"),
+           "reject zero camera channels");
+
+    shms::CameraRecord camera;
+    expect(!cameraDao.findById(0, &camera, &found),
+           "reject a zero camera id");
+    std::vector<shms::CameraRecord> cameras;
+    expect(!cameraDao.listCameras(nullptr),
+           "reject a null camera list output");
 
     std::cout << "All Database tests passed" << std::endl;
     return EXIT_SUCCESS;
